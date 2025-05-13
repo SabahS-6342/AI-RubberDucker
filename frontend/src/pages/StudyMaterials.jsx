@@ -27,15 +27,15 @@ import {
 import { FaSearch, FaBook, FaVideo, FaFileAlt, FaExternalLinkAlt } from 'react-icons/fa';
 import { getStudyMaterials } from '../services/studyMaterials';
 
-const ResourceCard = ({ title, description, type, difficulty, url }) => {
+const ResourceCard = ({ title, content_type, content,  estimated_time, difficulty }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   const getTypeIcon = () => {
-    switch (type) {
+    switch (content_type) {
       case 'video':
         return FaVideo;
-      case 'article':
+      case 'pdf':
         return FaFileAlt;
       default:
         return FaBook;
@@ -75,14 +75,14 @@ const ResourceCard = ({ title, description, type, difficulty, url }) => {
           <Heading size="md">{title}</Heading>
           <Icon as={getTypeIcon()} color="orange.500" boxSize={5} />
         </HStack>
-        <Text color="gray.600">{description}</Text>
+        
         <HStack spacing={2}>
           <Badge colorScheme={getDifficultyColor()}>{difficulty}</Badge>
-          <Badge colorScheme="blue">{type}</Badge>
+          <Badge colorScheme="blue">{content_type}</Badge>
         </HStack>
         <Button
           as={Link}
-          href={url}
+          href={content}
           target="_blank"
           leftIcon={<FaExternalLinkAlt />}
           colorScheme="orange"
@@ -229,9 +229,9 @@ const StudyMaterials = () => {
                   key={index}
                   title={resource.title}
                   description={resource.description}
-                  type={resource.type}
+                  type={resource.content_type}
                   difficulty={resource.difficulty}
-                  url={resource.url}
+                  url={resource.content}
                 />
               ))}
             </SimpleGrid>

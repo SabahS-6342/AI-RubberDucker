@@ -30,6 +30,7 @@ export default {
         timeout: 10000,
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        credentials: true
     }
 }; 

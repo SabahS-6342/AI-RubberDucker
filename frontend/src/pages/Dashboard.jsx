@@ -170,7 +170,7 @@ import {
               icon={FaBook}
               title="Learning Path"
               description="Explore personalized learning materials and study resources"
-              onClick={() => navigate('/learning-path')}
+              onClick={() => navigate('/learning-paths')}
             />
             <FeatureCard
               icon={FaComments}

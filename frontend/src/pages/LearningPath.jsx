@@ -21,10 +21,25 @@ import { FaBook, FaCheck, FaLock, FaArrowRight, FaClock, FaGraduationCap } from 
 import { useNavigate } from 'react-router-dom';
 import { getLearningPaths } from '../services/learningPath';
 
-const TopicCard = ({ title, description, progress, isLocked, onStart }) => {
+
+
+const TopicCard = ({id, title, description, level, tags, items }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const progressColor = useColorModeValue('orange.500', 'orange.300');
+
+  const getLevelColor = () => {
+    switch (level) {
+      case 'Beginner':
+        return 'green';
+      case 'Intermediate':
+        return 'orange';
+      case 'Advanced':
+        return 'red';
+      default:
+        return 'gray';
+    }
+  };
 
   return (
     <Box
@@ -55,21 +70,7 @@ const TopicCard = ({ title, description, progress, isLocked, onStart }) => {
           )}
         </HStack>
         <Text color="gray.600">{description}</Text>
-        <Progress
-          value={progress}
-          colorScheme="orange"
-          borderRadius="full"
-          size="sm"
-        />
-        <Button
-          leftIcon={isLocked ? <FaLock /> : <FaArrowRight />}
-          colorScheme="orange"
-          variant={isLocked ? 'outline' : 'solid'}
-          isDisabled={isLocked}
-          onClick={onStart}
-        >
-          {isLocked ? 'Locked' : progress === 100 ? 'Review' : 'Start Learning'}
-        </Button>
+        
       </VStack>
     </Box>
   );
@@ -79,8 +80,8 @@ const LearningPathCard = ({ path, onClick }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty.toLowerCase()) {
+  const getDifficultyColor = (level) => {
+    switch (level.toLowerCase()) {
       case 'beginner':
         return 'green';
       case 'intermediate':
@@ -112,19 +113,18 @@ const LearningPathCard = ({ path, onClick }) => {
       <VStack align="start" spacing={4}>
         <HStack justify="space-between" w="full">
           <Heading size="md">{path.title}</Heading>
-          <Badge colorScheme={getDifficultyColor(path.difficulty_level)}>
-            {path.difficulty_level}
+          <Badge colorScheme={getDifficultyColor(path.level)}>
+            {path.level}
           </Badge>
         </HStack>
         <Text color="gray.600">{path.description}</Text>
         <HStack spacing={4}>
           <HStack>
-            <Icon as={FaClock} color="gray.500" />
-            <Text fontSize="sm" color="gray.500">{path.estimated_duration}</Text>
+            <Badge colorScheme={getDifficultyColor()}>{level}</Badge>
           </HStack>
           <HStack>
             <Icon as={FaBook} color="gray.500" />
-            <Text fontSize="sm" color="gray.500">{path.topics.length} topics</Text>
+            <Text fontSize="sm" color="gray.500">{path.items.length} items</Text>
           </HStack>
         </HStack>
       </VStack>

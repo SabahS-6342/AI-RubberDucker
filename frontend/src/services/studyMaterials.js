@@ -3,12 +3,16 @@ import config from '../config';
 
 const API_URL = config.API_BASE_URL;
 
+
 export const getStudyMaterials = async () => {
   try {
     const response = await axios.get(`${API_URL}/api/study-materials`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS'
+      },
+     // withCredentials: true
     });
     return response.data;
   } catch (error) {

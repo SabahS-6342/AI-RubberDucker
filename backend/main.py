@@ -10,6 +10,7 @@ import requests
 from jose import JWTError, jwt
 
 from datetime import datetime, timedelta
+from bson.json_util import dumps # for converting the collections to list
 import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, field_validator
@@ -123,13 +124,13 @@ def init_db():
         code_submissions_collection.create_index([("submission_date", 1)])
         
         # Study Materials collection
-        study_materials_collection.create_index([("category", 1)])
-        study_materials_collection.create_index([("difficulty_level", 1)])
-        study_materials_collection.create_index([("content_type", 1)])
+        study_materials_collection.create_index([("title", 1)])
+        study_materials_collection.create_index([("_id", 1)])
+        
         
         # Learning Paths collection
         learning_paths_collection.create_index([("title", 1)], unique=True)
-        learning_paths_collection.create_index([("difficulty_level", 1)])
+        
     except errors.OperationFailure as e:
         raise Exception(f"Failed to create indexes: {str(e)}")
 
@@ -325,6 +326,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
+        print("USER IS GOTTTT!!! HERE IT ISSS: ", payload)
         if email is None:
             raise credentials_exception
         token_data = TokenData(email=email)
@@ -333,6 +335,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
     
     try:
         user = users_collection.find_one({"email": token_data.email})
+        print("USERRRRR IS HEEEEEEEEEEEEEREEEEE:", user)
         if user is None:
             raise credentials_exception
         user["id"] = str(user["_id"])  # Convert ObjectId to string
@@ -822,9 +825,42 @@ async def get_recent_activity(current_user: Optional[dict] = Depends(get_current
 @app.get("/api/learning-paths")
 async def get_learning_paths(current_user: dict = Depends(get_current_user)):
     try:
-        learning_paths = list(learning_paths_collection.find())
-        for path in learning_paths:
-            path["id"] = str(path["_id"])
+        learning_paths_cursor = learning_paths_collection.find()
+        
+        # Convert to a list of dictionaries with proper handling of nested ObjectIds
+        learning_paths = []
+        for path in learning_paths_cursor:
+            # Create a serializable dictionary
+            path_dict = {"id": str(path["_id"])}
+            
+            for key, value in path.items():
+                if key == "_id":
+                    continue  # Already handled
+                
+                if key == "items" and isinstance(value, list):
+                    # Handle items array with nested ObjectIds
+                    serialized_items = []
+                    for item in value:
+                        serialized_item = {}
+                        for item_key, item_value in item.items():
+                            if isinstance(item_value, ObjectId):
+                                serialized_item[item_key] = str(item_value)
+                            else:
+                                serialized_item[item_key] = item_value
+                        serialized_items.append(serialized_item)
+                    path_dict["items"] = serialized_items
+                
+                elif isinstance(value, ObjectId):
+                    path_dict[key] = str(value)
+                
+                elif isinstance(value, datetime):
+                    path_dict[key] = value.isoformat()
+                
+                else:
+                    path_dict[key] = value
+            
+            learning_paths.append(path_dict)
+            
         return learning_paths
     except errors.PyMongoError as e:
         raise HTTPException(
@@ -852,9 +888,31 @@ async def get_learning_path(path_id: str, current_user: dict = Depends(get_curre
 @app.get("/api/study-materials")
 async def get_study_materials(current_user: dict = Depends(get_current_user)):
     try:
-        study_materials = list(study_materials_collection.find())
+        """    
+        print("PRINTING THIS SHIT")
+        print(study_materials_collection.find())
+        
+        study_materials = dumps(study_materials_collection.find())
+        print(study_materials)
         for material in study_materials:
             material["id"] = str(material["_id"])
+            material.pop("_id")
+        return study_materials
+        """
+        # Get data from MongoDB
+        study_materials_cursor = study_materials_collection.find()
+        
+        # Convert to a list of dictionaries
+        study_materials = []
+        for material in study_materials_cursor:
+            # Convert ObjectId to string
+            material_dict = {
+                "id": str(material["_id"]),  # Add string ID
+                **{k: (str(v) if isinstance(v, ObjectId) else v) 
+                   for k, v in material.items() if k != "_id"}
+            }
+            study_materials.append(material_dict)
+            print(study_materials)
         return study_materials
     except errors.PyMongoError as e:
         raise HTTPException(
