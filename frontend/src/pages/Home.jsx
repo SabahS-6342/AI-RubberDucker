@@ -2,6 +2,8 @@ import { Box, Container, Heading, Text, Button, VStack, Image, Stack, Input, For
 import { Link, useNavigate } from 'react-router-dom'
 import { FaRobot, FaGraduationCap, FaChartLine, FaCode, FaGoogle, FaGithub, FaQuoteLeft } from 'react-icons/fa'
 import GoogleAuthButton from '../components/GoogleAuthButton'
+import { login } from '../services/auth'
+import { useState } from 'react'
 
 function FeatureCard({ icon, title, description }) {
   return (
@@ -148,54 +150,50 @@ function SocialButton({ icon, label, onClick, ...props }) {
 function Home() {
   const navigate = useNavigate();
   const toast = useToast();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
-    try {
-      // Initialize Google OAuth
-      const google = window.google;
-      if (!google) {
-        throw new Error('Google API not loaded');
-      }
-
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        scope: 'email profile',
-        callback: async (response) => {
-          if (response.error) {
-            throw new Error(response.error);
-          }
-          
-          try {
-            await googleLogin(response.access_token);
-            toast({
-              title: 'Login successful',
-              status: 'success',
-              duration: 3000,
-              isClosable: true,
-            });
-            navigate('/dashboard');
-          } catch (error) {
-            toast({
-              title: 'Login failed',
-              description: error.message,
-              status: 'error',
-              duration: 5000,
-              isClosable: true,
-            });
-          }
-        },
+  const handleLogin = async () => {
+    if (!username || !password) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all fields',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
       });
+      return;
+    }
 
-      client.requestAccessToken();
+    setIsLoading(true);
+    try {
+      const data = await login(username, password);
+      
+      toast({
+        title: 'Success',
+        description: 'Successfully logged in!',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      navigate('/dashboard');
     } catch (error) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.response?.data?.detail || 'Invalid credentials',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleGitHubLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`;
   };
 
   return (
@@ -280,6 +278,8 @@ function Home() {
                       borderColor="gray.300"
                       _hover={{ borderColor: 'gray.400' }}
                       _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                     />
                   </FormControl>
                   <FormControl>
@@ -291,9 +291,16 @@ function Home() {
                       borderColor="gray.300"
                       _hover={{ borderColor: 'gray.400' }}
                       _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                   </FormControl>
-                  <Button colorScheme="orange" size="lg">
+                  <Button 
+                    colorScheme="orange" 
+                    size="lg"
+                    onClick={handleLogin}
+                    isLoading={isLoading}
+                  >
                     Sign In
                   </Button>
                   <Box>
@@ -301,11 +308,23 @@ function Home() {
                       Or continue with
                     </Text>
                     <SimpleGrid columns={2} spacing={3}>
-                      <GoogleAuthButton label="Google" />
+                      <GoogleAuthButton 
+                        label="Google"
+                        redirectPath="/dashboard"
+                        onSuccess={(result) => {
+                          toast({
+                            title: 'Login successful',
+                            status: 'success',
+                            duration: 3000,
+                            isClosable: true,
+                          });
+                          navigate('/dashboard');
+                        }}
+                      />
                       <SocialButton 
                         icon={FaGithub}
                         label="GitHub"
-                        onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`}
+                        onClick={handleGitHubLogin}
                         color="gray.600"
                       />
                     </SimpleGrid>
@@ -469,7 +488,40 @@ function Home() {
                 </Text>
               </VStack>
             </HStack>
-            <HStack spacing={6} justify="flex-start">
+
+            <Stack spacing={6} mb={8}>
+              <FormControl>
+                <FormLabel htmlFor="username">Username</FormLabel>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel htmlFor="password">Password</FormLabel>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                />
+              </FormControl>
+              <Button
+                colorScheme="orange"
+                size="lg"
+                onClick={handleLogin}
+                isLoading={isLoading}
+                w="full"
+              >
+                Sign In
+              </Button>
+            </Stack>
+
+            <HStack spacing={6} justify="center">
               <Button
                 colorScheme="orange"
                 size="lg"
@@ -484,7 +536,7 @@ function Home() {
                   boxShadow: 'lg',
                 }}
               >
-                Get Started Free
+                Create Account
               </Button>
               <Button
                 variant="outline"
@@ -504,6 +556,37 @@ function Home() {
                 View Pricing
               </Button>
             </HStack>
+
+            <VStack spacing={4} mt={8}>
+              <HStack>
+                <Divider />
+                <Text fontSize="sm" color="gray.500" whiteSpace="nowrap" px={3}>
+                  or continue with
+                </Text>
+                <Divider />
+              </HStack>
+
+              <SimpleGrid columns={2} spacing={4} w="full">
+                <GoogleAuthButton 
+                  label="Google"
+                  redirectPath="/dashboard"
+                  onSuccess={(result) => {
+                    toast({
+                      title: 'Login successful',
+                      status: 'success',
+                      duration: 3000,
+                      isClosable: true,
+                    });
+                    navigate('/dashboard');
+                  }}
+                />
+                <SocialButton 
+                  icon={FaGithub}
+                  label="GitHub"
+                  onClick={handleGitHubLogin}
+                />
+              </SimpleGrid>
+            </VStack>
           </Box>
         </Container>
       </Box>

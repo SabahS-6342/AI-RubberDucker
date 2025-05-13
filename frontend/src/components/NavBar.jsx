@@ -164,10 +164,10 @@ const NavBar = () => {
                 <MenuButton
                   as={Button}
                   variant="ghost"
-                colorScheme="orange"
-                size="md"
-                fontWeight="medium"
-                px={4}
+                  colorScheme="orange"
+                  size="md"
+                  fontWeight="medium"
+                  px={4}
                   leftIcon={<FaUser />}
                 >
                   Profile
@@ -184,7 +184,7 @@ const NavBar = () => {
                   </MenuItem>
                   <MenuDivider />
                   <MenuItem icon={<FaSignOutAlt />} onClick={handleLogout} color="red.500">
-                Logout
+                    Logout
                   </MenuItem>
                 </MenuList>
               </Menu>
@@ -250,7 +250,9 @@ const NavBar = () => {
           p={4}
           display={{ md: "none" }}
           spacing={4}
-          divider={<Box borderBottom="1px" borderColor={borderColor} w="100%" />}
+          bg={bgColor}
+          borderBottom="1px"
+          borderColor={borderColor}
         >
           {isLoggedIn ? (
             <>
@@ -259,15 +261,13 @@ const NavBar = () => {
               <NavLink to="/learning-path" isMobile>Learning Path</NavLink>
               <NavLink to="/study-materials" isMobile>Study Materials</NavLink>
               <NavLink to="/practice" isMobile>Practice</NavLink>
-              <NavLink to="/learning-history" isMobile>Learning History</NavLink>
               <NavLink to="/profile" isMobile>Profile</NavLink>
-              <NavLink to="/chat-history" isMobile>Chat History</NavLink>
               <NavLink to="/settings" isMobile>Settings</NavLink>
-              <Button 
-                w="full"
+              <Button
+                onClick={handleLogout}
                 colorScheme="red"
                 variant="ghost"
-                onClick={handleLogout}
+                width="full"
                 leftIcon={<FaSignOutAlt />}
               >
                 Logout
@@ -275,20 +275,20 @@ const NavBar = () => {
             </>
           ) : (
             <>
-              <Button 
+              <Button
                 as={RouterLink}
                 to="/login"
-                w="full"
-                variant="ghost" 
                 colorScheme="orange"
+                variant="ghost"
+                width="full"
               >
                 Log in
               </Button>
-              <Button 
+              <Button
                 as={RouterLink}
                 to="/register"
-                w="full"
                 colorScheme="orange"
+                width="full"
               >
                 Sign up
               </Button>

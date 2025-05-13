@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Box, Container, Heading, Text, Button, VStack, Image, Stack, Input, FormControl, FormLabel, HStack, SimpleGrid, Icon, useColorModeValue, Divider, useToast } from '@chakra-ui/react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FaGoogle, FaGithub } from 'react-icons/fa'
+import { login } from '../services/auth'
+import GoogleAuthButton from '../components/GoogleAuthButton'
 
 function SocialButton({ icon, label, ...props }) {
   return (
@@ -19,80 +21,70 @@ function SocialButton({ icon, label, ...props }) {
   )
 }
 
-function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
-  const navigate = useNavigate();
+const Login = () => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const toast = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from || '/dashboard'
 
-  const handleGoogleLogin = () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsLoading(true)
+
     try {
-      window.location.href = `${import.meta.env.VITE_API_URL}/auth/google/login`;
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to initiate Google login',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all fields',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log('Login successful, token received:', data.token ? 'Present' : 'Not present');
-        localStorage.setItem('token', data.token);
-        // Dispatch custom event for auth state change
-        console.log('Dispatching authStateChanged event');
-        window.dispatchEvent(new Event('authStateChanged'));
-      toast({
-          title: 'Success',
-          description: 'Successfully logged in!',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      navigate('/dashboard');
-      } else {
-        throw new Error(data.message || 'Login failed');
+      const response = await login(email, password)
+      if (response.token) {
+        localStorage.setItem('token', response.token)
+        // Dispatch auth state change event
+        window.dispatchEvent(new Event('authStateChanged'))
+        toast({
+          title: 'Login successful',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+        navigate(from, { replace: true })
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: error.message || 'Something went wrong',
+        title: 'Login failed',
+        description: error.message || 'Please check your credentials',
         status: 'error',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await GoogleAuthButton.handleGoogleLogin()
+      if (response.token) {
+        localStorage.setItem('token', response.token)
+        window.dispatchEvent(new Event('authStateChanged'))
+        toast({
+          title: 'Login successful',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+        navigate(from, { replace: true })
+      }
+    } catch (error) {
+      toast({
+        title: 'Google login failed',
+        description: error.message || 'Please try again',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+  }
 
   return (
     <Box minH="calc(100vh - 60px)" position="relative" overflow="hidden">
@@ -132,17 +124,17 @@ function Login() {
             </VStack>
 
             <Box position="relative" w="full">
-            <Image
-              src="/ducks/6.png"
+              <Image
+                src="/ducks/6.png"
                 alt="AI RubberDucker Mascot"
                 h="300px"
-              objectFit="contain"
+                objectFit="contain"
                 mx="auto"
                 style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
                 transition="transform 0.3s ease-in-out"
                 _hover={{ transform: 'scale(1.05)' }}
-            />
-          </Box>
+              />
+            </Box>
           </VStack>
 
           {/* Right Side - Login Form */}
@@ -175,34 +167,34 @@ function Login() {
                 </Text>
               </VStack>
 
-                <VStack spacing={6}>
-                  <FormControl isRequired>
-                    <FormLabel color="gray.600">Email</FormLabel>
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      size="lg"
-                      borderColor="gray.300"
-                      _hover={{ borderColor: 'gray.400' }}
-                      _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
-                    />
-                  </FormControl>
+              <VStack spacing={6}>
+                <FormControl isRequired>
+                  <FormLabel color="gray.600">Email</FormLabel>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    size="lg"
+                    borderColor="gray.300"
+                    _hover={{ borderColor: 'gray.400' }}
+                    _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
+                  />
+                </FormControl>
 
-                  <FormControl isRequired>
-                    <FormLabel color="gray.600">Password</FormLabel>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      size="lg"
-                      borderColor="gray.300"
-                      _hover={{ borderColor: 'gray.400' }}
-                      _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
-                    />
-                  </FormControl>
+                <FormControl isRequired>
+                  <FormLabel color="gray.600">Password</FormLabel>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    size="lg"
+                    borderColor="gray.300"
+                    _hover={{ borderColor: 'gray.400' }}
+                    _focus={{ borderColor: 'orange.400', boxShadow: '0 0 0 1px var(--chakra-colors-orange-400)' }}
+                  />
+                </FormControl>
 
                 <Box alignSelf="flex-start">
                   <Link to="/forgot-password">
@@ -212,18 +204,18 @@ function Login() {
                   </Link>
                 </Box>
 
-                    <Button
-                  onClick={handleLogin}
-                      colorScheme="orange"
-                      size="lg"
-                      w="full"
-                      isLoading={isLoading}
-                      loadingText="Signing in..."
+                <Button
+                  onClick={handleSubmit}
+                  colorScheme="orange"
+                  size="lg"
+                  w="full"
+                  isLoading={isLoading}
+                  loadingText="Signing in..."
                   bg="#F47B3F"
                   _hover={{ bg: '#E16C30' }}
-                    >
-                      Sign In
-                    </Button>
+                >
+                  Sign In
+                </Button>
 
                 <HStack>
                   <Divider />
@@ -231,7 +223,7 @@ function Login() {
                     or continue with
                   </Text>
                   <Divider />
-                  </HStack>
+                </HStack>
 
                 <SimpleGrid columns={2} spacing={4} w="full">
                   <SocialButton
@@ -246,13 +238,13 @@ function Login() {
                     onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`}
                   />
                 </SimpleGrid>
-                </VStack>
+              </VStack>
             </VStack>
           </Box>
         </Stack>
       </Container>
     </Box>
-  );
+  )
 }
 
-export default Login; 
+export default Login 

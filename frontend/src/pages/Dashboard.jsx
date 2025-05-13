@@ -27,6 +27,7 @@ import {
   } from 'react-icons/fa'
   import { useEffect, useState } from 'react'
   import { getDashboardStats, getRecentActivity } from '../services/dashboard'
+  import config from '../config'
   
   const FeatureCard = ({ icon, title, description, onClick, colorScheme = 'orange' }) => {
     const bgColor = useColorModeValue('white', 'gray.700')
@@ -68,32 +69,98 @@ import {
     const [stats, setStats] = useState(null)
     const [recentActivity, setRecentActivity] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [isAdmin, setIsAdmin] = useState(false)
 
     useEffect(() => {
-      const fetchDashboardData = async () => {
-        try {
-          setIsLoading(true)
-          const [statsData, activityData] = await Promise.all([
-            getDashboardStats(),
-            getRecentActivity()
-          ])
-          setStats(statsData)
-          setRecentActivity(activityData)
-        } catch (error) {
+        const fetchDashboardData = async () => {
+            try {
+                setIsLoading(true)
+                const token = localStorage.getItem('token')
+                if (!token) {
+                    toast({
+                        title: 'Error',
+                        description: 'Please log in to view the dashboard',
+                        status: 'error',
+                        duration: 5000,
+                        isClosable: true,
+                    })
+                    navigate('/login')
+                    return
+                }
+
+                console.log('Fetching dashboard data...')
+                const [statsData, activityData] = await Promise.all([
+                    getDashboardStats(),
+                    getRecentActivity()
+                ])
+                console.log('Dashboard stats:', statsData)
+                console.log('Recent activity:', activityData)
+                
+                setStats(statsData)
+                setRecentActivity(activityData)
+            } catch (error) {
+                console.error('Dashboard data fetch error:', error)
+                console.error('Error details:', error.response?.data)
+                toast({
+                    title: 'Error',
+                    description: error.response?.data?.detail || 'Failed to load dashboard data',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                })
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchDashboardData()
+    }, [toast, navigate])
+
+    useEffect(() => {
+      const checkAdminStatus = async () => {
+        const token = localStorage.getItem('token')
+        if (!token) {
           toast({
             title: 'Error',
-            description: 'Failed to load dashboard data',
+            description: 'You must be logged in to view the dashboard.',
             status: 'error',
             duration: 5000,
             isClosable: true,
           })
-        } finally {
-          setIsLoading(false)
+          navigate('/login')
+          return
+        }
+
+        try {
+          const response = await fetch(`${config.API_BASE_URL}/api/dashboard/stats`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch user data')
+          }
+          
+          const data = await response.json()
+          if (data.user && data.user.role === 'admin') {
+            setIsAdmin(true)
+          }
+        } catch (error) {
+          console.error('Admin status check error:', error)
+          toast({
+            title: 'Error',
+            description: 'Failed to fetch user data.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          })
         }
       }
 
-      fetchDashboardData()
-    }, [toast])
+      checkAdminStatus()
+    }, [toast, navigate])
 
     const getStatusColor = (status) => {
       switch (status) {
@@ -229,6 +296,13 @@ import {
               </VStack>
             )}
           </Box>
+
+          {isAdmin && (
+            <VStack mt={4} align="start" spacing={2}>
+              <Heading size="md">Admin Statistics</Heading>
+              <Text>Here you can view and manage admin statistics.</Text>
+            </VStack>
+          )}
         </VStack>
       </Box>
     )

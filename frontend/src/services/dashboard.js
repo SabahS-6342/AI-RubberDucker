@@ -20,16 +20,25 @@ api.interceptors.request.use(
     }
 );
 
+// Add response interceptor for error handling
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const getDashboardStats = async () => {
     try {
         const response = await api.get(config.API_ENDPOINTS.DASHBOARD.STATS);
         return response.data;
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-        }
         throw error;
     }
 };
@@ -40,10 +49,6 @@ export const getRecentActivity = async () => {
         return response.data;
     } catch (error) {
         console.error('Error fetching recent activity:', error);
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-        }
         throw error;
     }
 }; 
