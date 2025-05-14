@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Box, Container, Heading, Text, Button, VStack, Image, Stack, Input, FormControl, FormLabel, HStack, SimpleGrid, Icon, useColorModeValue, Divider, useToast, Checkbox } from '@chakra-ui/react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FaGoogle, FaGithub } from 'react-icons/fa'
-import { register } from '../services/auth'
+import { FaGithub } from 'react-icons/fa'
+import GoogleAuthButton from '../components/GoogleAuthButton'
 
 function SocialButton({ icon, label, ...props }) {
   return (
@@ -26,98 +26,84 @@ function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/google/login`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to initiate Google login');
-      }
-      const data = await response.json();
-      window.location.href = data.redirectUrl;
-    } catch (error) {
+  const handleRegister = async () => {
+    if (!termsAccepted) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to initiate Google login',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    try {
-      // Validate all fields
-      if (!firstName || !lastName || !email || !password || !confirmPassword) {
-        toast({
-          title: "Error",
-          description: "Please fill in all fields",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-
-      // Validate password match
-      if (password !== confirmPassword) {
-        toast({
-          title: "Error",
-          description: "Passwords do not match",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-
-      // Validate terms acceptance
-      if (!acceptTerms) {
-        toast({
-          title: "Error",
-          description: "Please accept the terms and conditions",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-
-      // Create username from first and last name
-      const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
-
-      const response = await register(username, email, password, confirmPassword);
-      
-      toast({
-        title: "Success",
-        description: "Registration successful! Redirecting to dashboard...",
-        status: "success",
+        title: 'Terms and Conditions',
+        description: 'Please accept the terms and conditions to continue',
+        status: 'warning',
         duration: 3000,
         isClosable: true,
       });
+      return;
+    }
 
-      // Navigate to dashboard after successful registration
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Registration error:', error);
+    if (password !== confirmPassword) {
       toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Registration failed. Please try again.",
-        status: "error",
+        title: 'Password Mismatch',
+        description: 'Passwords do not match',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          password
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        console.log('Register - Setting token:', data.token ? 'Present' : 'Not present');
+        // Store the token and user data
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Force a storage event to update other components
+        window.dispatchEvent(new Event('storage'));
+        
+        toast({
+          title: 'Registration successful',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        
+        // Ensure navigation happens after state updates
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 100);
+      } else {
+        toast({
+          title: 'Registration failed',
+          description: data.message || 'Something went wrong',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (err) {
+      console.error('Registration failed:', err);
+      toast({
+        title: 'Error',
+        description: 'Something went wrong. Please try again.',
+        status: 'error',
         duration: 3000,
         isClosable: true,
       });
@@ -219,8 +205,8 @@ function Register() {
                     <FormLabel color="gray.600">First Name</FormLabel>
                     <Input 
                       type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Enter your first name"
                     />
                   </FormControl>
@@ -228,8 +214,8 @@ function Register() {
                     <FormLabel color="gray.600">Last Name</FormLabel>
                     <Input 
                       type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                     value={lastName}
+                     onChange={(e) => setLastName(e.target.value)}
                       placeholder="Enter your last name"
                     />
                   </FormControl>
@@ -240,7 +226,7 @@ function Register() {
                   <Input 
                     type="email" 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+  onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                   />
                 </FormControl>
@@ -250,7 +236,7 @@ function Register() {
                   <Input 
                     type="password" 
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+  onChange={(e) => setPassword(e.target.value)}
                     placeholder="Create a password"
                   />
                 </FormControl>
@@ -260,15 +246,15 @@ function Register() {
                   <Input 
                     type="password" 
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+  onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm your password"
                   />
                 </FormControl>
 
                 <FormControl>
                   <Checkbox 
-                    isChecked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    isChecked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
                     colorScheme="orange"
                   >
                     <Text fontSize="sm" color="gray.600">
@@ -278,20 +264,20 @@ function Register() {
                 </FormControl>
 
                 <Button
-                  onClick={handleRegister}
-                  colorScheme="orange"
-                  size="lg"
-                  w="full"
-                  py={6}
+  onClick={handleRegister}
+  colorScheme="orange"
+  size="lg"
+  w="full"
+  py={6}
                   isLoading={isLoading}
                   loadingText="Creating account..."
                   _hover={{
                     transform: 'translateY(-2px)',
                     boxShadow: 'lg',
                   }}
-                >
-                  Create Account
-                </Button>
+>
+  Create Account
+</Button>
               </VStack>
 
               <VStack spacing={6}>
@@ -304,13 +290,20 @@ function Register() {
                 </HStack>
 
                 <SimpleGrid columns={2} spacing={4} w="full">
-                  <SocialButton
-                    icon={FaGoogle}
+                  <GoogleAuthButton 
                     label="Google"
-                    onClick={handleGoogleLogin}
-                    color="gray.600"
+                    redirectPath="/dashboard"
+                    onSuccess={(result) => {
+                      toast({
+                        title: 'Registration successful',
+                        status: 'success',
+                        duration: 3000,
+                        isClosable: true,
+                      });
+                      navigate('/dashboard');
+                    }}
                   />
-                  <SocialButton
+                  <SocialButton 
                     icon={FaGithub}
                     label="GitHub"
                     onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`}

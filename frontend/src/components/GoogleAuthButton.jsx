@@ -4,6 +4,7 @@ import { googleLogin } from '../services/auth';
 import { useToast } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import config from '../config';
 
 const GoogleAuthButton = ({ label = "Continue with Google", onSuccess, redirectPath = "/dashboard" }) => {
   const navigate = useNavigate();
@@ -107,23 +108,31 @@ const GoogleAuthButton = ({ label = "Continue with Google", onSuccess, redirectP
           
           try {
             const result = await googleLogin(response.access_token);
-            toast({
-              title: 'Login successful',
-              status: 'success',
-              duration: 3000,
-              isClosable: true,
-            });
-            
-            if (onSuccess) {
-              onSuccess(result);
+            if (result.token) {
+              localStorage.setItem('token', result.token);
+              localStorage.setItem('user', JSON.stringify(result.user));
+              window.dispatchEvent(new Event('authStateChanged'));
+              
+              toast({
+                title: 'Login successful',
+                status: 'success',
+                duration: 3000,
+                isClosable: true,
+              });
+              
+              if (onSuccess) {
+                onSuccess(result);
+              } else {
+                navigate(redirectPath);
+              }
             } else {
-              navigate(redirectPath);
+              throw new Error('No token received from server');
             }
           } catch (error) {
             console.error('Backend error:', error);
             toast({
               title: 'Login failed',
-              description: error.message,
+              description: error.message || 'Failed to authenticate with server',
               status: 'error',
               duration: 5000,
               isClosable: true,
@@ -137,7 +146,7 @@ const GoogleAuthButton = ({ label = "Continue with Google", onSuccess, redirectP
       console.error('Google OAuth error:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to initialize Google authentication',
         status: 'error',
         duration: 5000,
         isClosable: true,

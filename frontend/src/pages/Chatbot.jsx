@@ -33,7 +33,13 @@ import {
 } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { FaPaperPlane, FaTrash, FaCode, FaFileUpload, FaFile, FaImage, FaFileCode, FaRobot, FaUser } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css';
 import config from '../config';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 
 // Animation keyframes
 const pulseAnimation = keyframes`
@@ -47,28 +53,44 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+// Format timestamp function
+const formatTimestamp = (timestamp) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInHours = Math.abs(now - date) / 36e5; // Convert to hours
+
+  if (diffInHours < 24) {
+    // If less than 24 hours, show time
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (diffInHours < 48) {
+    // If less than 48 hours, show "Yesterday"
+    return 'Yesterday';
+  } else if (diffInHours < 168) { // 7 days
+    // If less than a week, show day name
+    return date.toLocaleDateString([], { weekday: 'short' });
+  } else {
+    // Otherwise show date
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+};
+
 const Chatbot = () => {
+  const { id: sessionId } = useParams();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState(() => {
-    const savedMessages = localStorage.getItem('chatMessages');
-    return savedMessages ? JSON.parse(savedMessages) : [{
-      id: Date.now(),
-      text: "👋 Hi! I'm your AI learning companion. I can help you understand complex topics, provide personalized explanations, and guide you through your learning journey. What would you like to learn about today?",
-      sender: 'bot',
-      timestamp: new Date().toISOString(),
-    }];
-  });
+  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [currentTopic, setCurrentTopic] = useState('');
   const [currentDifficulty, setCurrentDifficulty] = useState('');
-  const [chatTitle, setChatTitle] = useState('AI Learning Tutor');
+  const [chatTitle] = useState('AI Chatbot');
+  const [currentSessionId, setCurrentSessionId] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const navigate = useNavigate();
 
   // Theme colors
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -83,38 +105,191 @@ const Chatbot = () => {
   const inputBg = useColorModeValue('gray.50', 'gray.700');
   const shadowColor = useColorModeValue('rgba(0, 0, 0, 0.1)', 'rgba(0, 0, 0, 0.3)');
 
-  // Update chat title based on current topic
+  // Load session if sessionId is provided
   useEffect(() => {
-    if (currentTopic) {
-      setChatTitle(`Learning: ${currentTopic}`);
-    } else {
-      setChatTitle('AI Learning Tutor');
+    const initializeChat = async () => {
+      try {
+        if (sessionId) {
+          await loadSession(sessionId);
+        } else {
+          // Initialize new session with welcome message
+          const welcomeMessage = {
+            role: "assistant",
+            content: "👋 Hi! I'm your AI learning companion. I can help you understand complex topics, provide personalized explanations, and guide you through your learning journey. What would you like to learn about today?",
+            timestamp: new Date().toISOString()
+          };
+          setMessages([welcomeMessage]);
+        }
+      } catch (error) {
+        console.error('Error initializing chat:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to initialize chat. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    };
+
+    initializeChat();
+  }, [sessionId]);
+
+  const loadSession = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Get the session details using POST method
+      const response = await fetch(`${config.API_BASE_URL}/api/chat/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: "",  // Empty message to just load the session
+          action: "load"  // Indicate this is a load action
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to load chat session');
+      }
+
+      const data = await response.json();
+      
+      // Validate the response data
+      if (!data || !data.history) {
+        console.error('Invalid session data:', data);
+        throw new Error('Invalid session data received');
+      }
+
+      // Get the existing messages from the session
+      const sessionMessages = data.history;
+      
+      // Ensure each message has the required fields
+      const validMessages = sessionMessages.map(msg => ({
+        role: msg.role || 'assistant',
+        content: msg.content || '',
+        timestamp: msg.timestamp || new Date().toISOString()
+      }));
+
+      // Set the messages in state
+      setMessages(validMessages);
+      setCurrentTopic(data.topic || '');
+      setCurrentSessionId(id);
+
+      // Show success toast
+      toast({
+        title: 'Chat Loaded',
+        description: 'Previous messages have been loaded.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+    } catch (error) {
+      console.error('Error loading session:', error);
+      
+      // Show error toast
+      toast({
+        title: 'Error Loading Chat',
+        description: error.message || 'Failed to load chat session. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      // Reset to new chat
+      const welcomeMessage = {
+        role: "assistant",
+        content: "👋 Hi! I'm your AI learning companion. I can help you understand complex topics, provide personalized explanations, and guide you through your learning journey. What would you like to learn about today?",
+        timestamp: new Date().toISOString()
+      };
+      setMessages([welcomeMessage]);
+      setCurrentSessionId(null);
+      navigate('/chat');
     }
-  }, [currentTopic]);
+  };
 
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('chatMessages', JSON.stringify(messages));
-  }, [messages]);
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    try {
+      setIsLoading(true);
+      const currentMessage = message;
+      setMessage("");
 
-  const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    });
+      // Add user message to chat immediately
+      const userMessage = {
+        role: "user",
+        content: currentMessage,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      let response;
+      if (currentSessionId) {
+        // Send message to existing session
+        response = await axios.post(
+          `${config.API_BASE_URL}/api/chat/${currentSessionId}`,
+          { message: currentMessage },
+          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        );
+      } else {
+        // Start new session
+        response = await axios.post(
+          `${config.API_BASE_URL}/api/chat`,
+          { message: currentMessage },
+          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        );
+        
+        // Update session ID and URL if this is a new session
+        if (response.data.session_id) {
+          setCurrentSessionId(response.data.session_id);
+          navigate(`/chat/${response.data.session_id}`);
+        }
+      }
+
+      // Add AI response to chat
+      if (response.data.response) {
+        const aiMessage = {
+          role: "assistant",
+          content: response.data.response,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      }
+
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClearChat = () => {
-    setMessages([]);
+    const welcomeMessage = {
+      role: "assistant",
+      content: "👋 Hi! I'm your AI learning companion. I can help you understand complex topics, provide personalized explanations, and guide you through your learning journey. What would you like to learn about today?",
+      timestamp: new Date().toISOString()
+    };
+    setMessages([welcomeMessage]);
+    setCurrentTopic('');
+    setCurrentDifficulty('');
+    setCurrentSessionId(null);
+    navigate('/chat');
     toast({
       title: 'Learning session cleared',
       status: 'info',
@@ -164,16 +339,23 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/upload', {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${config.API_BASE_URL}/api/chat/pdf-summary`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload file');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to process PDF');
       }
 
       const data = await response.json();
@@ -185,16 +367,17 @@ const Chatbot = () => {
         )
       );
 
-      // Add bot's response
+      // Add bot's response with summary
       const botMessage = {
         id: Date.now() + 1,
-        text: `I've received your file: ${selectedFile.name}. How can I help you with it?`,
+        text: `Here's a summary of ${selectedFile.name}:\n\n${data.summary}\n\nKey Points:\n${data.key_points.map(point => `• ${point}`).join('\n')}`,
         sender: 'bot',
         timestamp: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
+      console.error('File upload error:', error);
       // Update the user message status to error
       setMessages((prev) =>
         prev.map((msg) =>
@@ -217,90 +400,38 @@ const Chatbot = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
-
-    const newMessage = {
-      id: Date.now(),
-      text: message,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-      status: 'sending',
+  const handleNewChat = () => {
+    // Create welcome message for new chat
+    const welcomeMessage = {
+      role: "assistant",
+      content: "👋 Hi! I'm your AI learning companion. I can help you understand complex topics, provide personalized explanations, and guide you through your learning journey. What would you like to learn about today?",
+      timestamp: new Date().toISOString()
     };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setMessage('');
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${config.API_BASE_URL}${config.API_ENDPOINTS.CHAT}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ 
-          message: newMessage.text,
-          topic: currentTopic,
-          difficulty_level: currentDifficulty
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to send message');
-      }
-
-      const data = await response.json();
-      
-      // Update the user message status
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
-        )
-      );
-
-      // Add bot's response
-      const botMessage = {
-        id: Date.now() + 1,
-        text: data.response,
-        sender: 'bot',
-        timestamp: new Date().toISOString(),
-        suggested_topics: data.suggested_topics,
-        learning_resources: data.learning_resources
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
-
-      // Update current topic if suggested
-      if (data.suggested_topics && data.suggested_topics.length > 0) {
-        setCurrentTopic(data.suggested_topics[0]);
-      }
-    } catch (error) {
-      // Update the user message status to error
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newMessage.id ? { ...msg, status: 'error' } : msg
-        )
-      );
-
-      toast({
-        title: 'Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // Reset state for new chat
+    setMessages([welcomeMessage]);
+    setCurrentTopic('');
+    setCurrentDifficulty('');
+    setCurrentSessionId(null);
+    
+    // Navigate to new chat URL
+    navigate('/chat');
+    
+    // Show success toast
+    toast({
+      title: 'New Chat Started',
+      description: 'You can now start a new conversation.',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
   };
 
   const renderMessage = (msg) => {
     if (msg.file) {
       return (
         <VStack align="stretch" spacing={2}>
-          <Text>{msg.text}</Text>
+          <Text>{msg.content}</Text>
           <Box
             p={3}
             bg={codeBgColor}
@@ -337,18 +468,23 @@ const Chatbot = () => {
       );
     }
 
-    const isCodeBlock = msg.text.includes('```');
-    if (isCodeBlock) {
-      const parts = msg.text.split('```');
-      return (
-        <VStack align="stretch" spacing={2}>
-          {parts.map((part, index) => {
-            if (index % 2 === 0) {
-              return <Text key={index}>{part}</Text>;
-            } else {
-              return (
+    return (
+      <Box>
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]} 
+          rehypePlugins={[rehypeHighlight]}
+          components={{
+            p: ({ children }) => <Text mb={2}>{children}</Text>,
+            h1: ({ children }) => <Heading as="h1" size="xl" mb={4}>{children}</Heading>,
+            h2: ({ children }) => <Heading as="h2" size="lg" mb={3}>{children}</Heading>,
+            h3: ({ children }) => <Heading as="h3" size="md" mb={2}>{children}</Heading>,
+            ul: ({ children }) => <Box as="ul" pl={4} mb={2}>{children}</Box>,
+            ol: ({ children }) => <Box as="ol" pl={4} mb={2}>{children}</Box>,
+            li: ({ children }) => <Box as="li" mb={1}>{children}</Box>,
+            code: ({ node, inline, className, children, ...props }) => {
+              const match = /language-(\w+)/.exec(className || '');
+              return !inline ? (
                 <Box
-                  key={index}
                   bg={codeBgColor}
                   p={4}
                   borderRadius="md"
@@ -357,75 +493,35 @@ const Chatbot = () => {
                   fontSize="sm"
                   color={codeTextColor}
                   whiteSpace="pre-wrap"
+                  {...props}
                 >
-                  {part}
+                  {children}
                 </Box>
+              ) : (
+                <Text as="code" bg={codeBgColor} px={1} py={0.5} borderRadius="sm" fontFamily="monospace">
+                  {children}
+                </Text>
               );
-            }
-          })}
-        </VStack>
-      );
-    }
-
-    return (
-      <VStack align="stretch" spacing={2}>
-        <Text>{msg.text}</Text>
-        
-        {/* Learning Resources */}
-        {msg.learning_resources && msg.learning_resources.length > 0 && (
-          <Box
-            p={3}
-            bg={codeBgColor}
-            borderRadius="md"
-            borderWidth="1px"
-            borderColor={borderColor}
-          >
-            <Text fontWeight="bold" mb={2}>Learning Resources:</Text>
-            {msg.learning_resources.map((resource, index) => (
-              <Box key={index} mb={2}>
-                <Text fontWeight="medium">{resource.title}</Text>
-                <Text fontSize="sm" color="gray.600">{resource.description}</Text>
-                {resource.url && (
-                  <Link href={resource.url} isExternal color="orange.500">
-                    View Resource
-                  </Link>
-                )}
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {/* Suggested Topics */}
-        {msg.suggested_topics && msg.suggested_topics.length > 0 && (
-          <Box
-            p={3}
-            bg={codeBgColor}
-            borderRadius="md"
-            borderWidth="1px"
-            borderColor={borderColor}
-          >
-            <Text fontWeight="bold" mb={2}>Suggested Topics:</Text>
-            <HStack spacing={2} wrap="wrap">
-              {msg.suggested_topics.map((topic, index) => (
-                <Badge
-                  key={index}
-                  colorScheme="orange"
-                  cursor="pointer"
-                  onClick={() => {
-                    setCurrentTopic(topic);
-                    setMessage(`Tell me about ${topic}`);
-                    handleSendMessage();
-                  }}
-                >
-                  {topic}
-                </Badge>
-              ))}
-            </HStack>
-          </Box>
-        )}
-      </VStack>
+            },
+            a: ({ children, href }) => (
+              <Link href={href} color="orange.500" isExternal>
+                {children}
+              </Link>
+            ),
+          }}
+        >
+          {msg.content}
+        </ReactMarkdown>
+      </Box>
     );
   };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   return (
     <Container maxW="container.lg" py={8}>
@@ -469,20 +565,28 @@ const Chatbot = () => {
               </Text>
             </VStack>
           </HStack>
-          <Tooltip label="Clear learning session">
-            <IconButton
-              icon={<FaTrash />}
-              aria-label="Clear chat"
-              variant="ghost"
-              colorScheme="red"
-              onClick={() => {
-                handleClearChat();
-                setCurrentTopic('');
-                setCurrentDifficulty('');
-              }}
-              size="sm"
-            />
-          </Tooltip>
+          <HStack spacing={2}>
+            <Tooltip label="Start new conversation">
+              <IconButton
+                icon={<FaCode />}
+                aria-label="New chat"
+                variant="ghost"
+                colorScheme="green"
+                onClick={handleNewChat}
+                size="sm"
+              />
+            </Tooltip>
+            <Tooltip label="Clear learning session">
+              <IconButton
+                icon={<FaTrash />}
+                aria-label="Clear chat"
+                variant="ghost"
+                colorScheme="red"
+                onClick={handleClearChat}
+                size="sm"
+              />
+            </Tooltip>
+          </HStack>
         </Flex>
 
         {/* Messages Container */}
@@ -496,14 +600,12 @@ const Chatbot = () => {
         >
           {messages.map((msg, index) => (
             <Box
-              key={msg.id}
-              alignSelf={msg.sender === 'user' ? 'flex-end' : 'flex-start'}
+              key={`${msg.role}-${msg.timestamp}-${index}`}
+              alignSelf={msg.role === 'user' ? 'flex-end' : 'flex-start'}
               maxW="70%"
-              animation={`${fadeIn} 0.3s ease-out ${index * 0.1}s both`}
-              opacity={0}
             >
               <HStack spacing={2} align="start" mb={1}>
-                {msg.sender === 'bot' && (
+                {msg.role === 'assistant' && (
                   <Avatar 
                     icon={<FaRobot fontSize="1rem" />} 
                     bg="orange.500" 
@@ -512,8 +614,8 @@ const Chatbot = () => {
                   />
                 )}
                 <Box
-                  bg={msg.sender === 'user' ? userBubbleBg : botBubbleBg}
-                  color={msg.sender === 'user' ? userTextColor : botTextColor}
+                  bg={msg.role === 'user' ? userBubbleBg : botBubbleBg}
+                  color={msg.role === 'user' ? userTextColor : botTextColor}
                   p={3}
                   borderRadius="lg"
                   boxShadow="sm"
@@ -522,19 +624,19 @@ const Chatbot = () => {
                     content: '""',
                     position: 'absolute',
                     top: '10px',
-                    [msg.sender === 'user' ? 'right' : 'left']: '-8px',
+                    [msg.role === 'user' ? 'right' : 'left']: '-8px',
                     width: '0',
                     height: '0',
                     borderTop: '8px solid transparent',
                     borderBottom: '8px solid transparent',
-                    [msg.sender === 'user' 
+                    [msg.role === 'user' 
                       ? 'borderLeft' 
-                      : 'borderRight']: `8px solid ${msg.sender === 'user' ? userBubbleBg : botBubbleBg}`,
+                      : 'borderRight']: `8px solid ${msg.role === 'user' ? userBubbleBg : botBubbleBg}`,
                   }}
                 >
                   {renderMessage(msg)}
                 </Box>
-                {msg.sender === 'user' && (
+                {msg.role === 'user' && (
                   <Avatar 
                     icon={<FaUser fontSize="1rem" />} 
                     bg="blue.500" 
@@ -543,33 +645,9 @@ const Chatbot = () => {
                   />
                 )}
               </HStack>
-              <HStack
-                mt={1}
-                spacing={2}
-                justify={msg.sender === 'user' ? 'flex-end' : 'flex-start'}
-                pl={msg.sender === 'bot' ? 8 : 0}
-                pr={msg.sender === 'user' ? 8 : 0}
-              >
-                <Text fontSize="xs" color="gray.500">
-                  {formatTimestamp(msg.timestamp)}
-                </Text>
-                {msg.sender === 'user' && (
-                  <Badge
-                    colorScheme={
-                      msg.status === 'sent'
-                        ? 'green'
-                        : msg.status === 'error'
-                        ? 'red'
-                        : 'yellow'
-                    }
-                    fontSize="xs"
-                    px={1}
-                    py={0}
-                  >
-                    {msg.status}
-                  </Badge>
-                )}
-              </HStack>
+              <Text fontSize="xs" color="gray.500" alignSelf={msg.role === 'user' ? 'flex-end' : 'flex-start'} mt={1}>
+                {formatTimestamp(msg.timestamp)}
+              </Text>
             </Box>
           ))}
           {isLoading && (

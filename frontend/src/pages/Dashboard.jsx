@@ -243,7 +243,7 @@ import {
               icon={FaComments}
               title="AI Tutor"
               description="Chat with your AI tutor for personalized guidance and explanations"
-              onClick={() => navigate('/chatbot')}
+              onClick={() => navigate('/chat')}
             />
             <FeatureCard
               icon={FaHistory}

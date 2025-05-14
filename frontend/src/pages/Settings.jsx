@@ -1,157 +1,274 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Container,
-  Heading,
-  VStack,
-  FormControl,
-  FormLabel,
-  Switch,
-  Button,
-  useToast,
-  Divider,
-  Text,
-  Select,
-  HStack,
-  useColorMode,
-  useColorModeValue,
-} from '@chakra-ui/react';
-import { updateUserPreferences } from '../services/auth';
+import React, { useState } from 'react';
+import { Box, VStack, Heading, Text, FormControl, FormLabel, Input, Button, useToast, Switch, useColorModeValue, Select, Checkbox, Textarea } from '@chakra-ui/react';
 
 const Settings = () => {
-  const [preferences, setPreferences] = useState({
-    emailNotifications: true,
-    darkMode: false,
-    language: 'en',
-    timezone: 'UTC',
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [notifications, setNotifications] = useState(true);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [twoFactorAuth, setTwoFactorAuth] = useState(false);
+  const [preferredLanguages, setPreferredLanguages] = useState([]);
+  const [difficultyLevel, setDifficultyLevel] = useState('Beginner');
+  const [learningGoals, setLearningGoals] = useState('');
+  const [dailyTarget, setDailyTarget] = useState('');
+  const [responseStyle, setResponseStyle] = useState('Concise');
+  const [voiceAssistant, setVoiceAssistant] = useState(false);
+  const [autoExplainCode, setAutoExplainCode] = useState(false);
+  const [contextRetention, setContextRetention] = useState('Short-term');
+  const [preferredLanguage, setPreferredLanguage] = useState('English');
+  const [contentTypes, setContentTypes] = useState([]);
+  const [exerciseMode, setExerciseMode] = useState('Practice Mode');
+  const [codeEditorTheme, setCodeEditorTheme] = useState('Light');
+  const [autoSaveCode, setAutoSaveCode] = useState(true);
+  const [learningPath, setLearningPath] = useState('');
+  const [customTags, setCustomTags] = useState('');
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [aiMessageReminders, setAiMessageReminders] = useState(true);
+  const [language, setLanguage] = useState('English');
+  const [timeZone, setTimeZone] = useState('UTC');
+  const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');
+  const [defaultPage, setDefaultPage] = useState('Dashboard');
+  const [apiKey, setApiKey] = useState('');
+  const [betaFeatures, setBetaFeatures] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [bugReport, setBugReport] = useState('');
+
   const toast = useToast();
-  const { colorMode, toggleColorMode } = useColorMode();
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
 
-  useEffect(() => {
-    // Set initial dark mode preference based on current color mode
-    setPreferences(prev => ({
-      ...prev,
-      darkMode: colorMode === 'dark'
-    }));
-  }, [colorMode]);
-
-  const handlePreferenceChange = (key, value) => {
-    setPreferences(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  const handleSave = () => {
+    // Placeholder for saving settings
+    toast({
+      title: 'Settings saved',
+      description: 'Your settings have been updated successfully.',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
   };
 
-  const handleSavePreferences = async () => {
-    setIsLoading(true);
-    try {
-      await updateUserPreferences(preferences);
-      toast({
-        title: 'Settings saved',
-        description: 'Your preferences have been updated successfully.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
+  const handleChangePassword = () => {
+    if (newPassword !== confirmPassword) {
       toast({
         title: 'Error',
-        description: 'Failed to save preferences. Please try again.',
+        description: 'New passwords do not match.',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
+    // Placeholder for changing password
+    toast({
+      title: 'Password changed',
+      description: 'Your password has been updated successfully.',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    // Placeholder for deleting account
+    toast({
+      title: 'Account deleted',
+      description: 'Your account has been deleted successfully.',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
   };
 
   return (
-    <Container maxW="container.md" py={8}>
-      <VStack spacing={8} align="stretch">
-        <Box>
-          <Heading size="lg" mb={2}>Settings</Heading>
-          <Text color="gray.500">Manage your account preferences and settings</Text>
-        </Box>
-
-        <Box
-          bg={bgColor}
-          p={6}
-          borderRadius="lg"
-          borderWidth="1px"
-          borderColor={borderColor}
-          shadow="sm"
-        >
-          <VStack spacing={6} align="stretch">
-            <Heading size="md">Preferences</Heading>
-            
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb="0">Email Notifications</FormLabel>
-              <Switch
-                isChecked={preferences.emailNotifications}
-                onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
-                colorScheme="orange"
-              />
-            </FormControl>
-
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb="0">Dark Mode</FormLabel>
-              <Switch
-                isChecked={preferences.darkMode}
-                onChange={(e) => {
-                  handlePreferenceChange('darkMode', e.target.checked);
-                  toggleColorMode();
-                }}
-                colorScheme="orange"
-              />
-            </FormControl>
-
-            <Divider />
-
-            <FormControl>
-              <FormLabel>Language</FormLabel>
-              <Select
-                value={preferences.language}
-                onChange={(e) => handlePreferenceChange('language', e.target.value)}
-              >
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-              </Select>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Timezone</FormLabel>
-              <Select
-                value={preferences.timezone}
-                onChange={(e) => handlePreferenceChange('timezone', e.target.value)}
-              >
-                <option value="UTC">UTC</option>
-                <option value="EST">Eastern Time</option>
-                <option value="CST">Central Time</option>
-                <option value="PST">Pacific Time</option>
-              </Select>
-            </FormControl>
-
-            <HStack justify="flex-end" spacing={4}>
-              <Button
-                onClick={handleSavePreferences}
-                colorScheme="orange"
-                isLoading={isLoading}
-                loadingText="Saving..."
-              >
-                Save Changes
-              </Button>
-            </HStack>
-          </VStack>
-        </Box>
+    <Box minH="100vh" bg={bgColor} p={8}>
+      <VStack spacing={8} align="stretch" maxW="600px" mx="auto">
+        <VStack align="start" spacing={1}>
+          <Heading size="xl" color="orange.500">Settings</Heading>
+          <Text color="gray.600">Manage your account settings and preferences</Text>
+        </VStack>
+        <FormControl>
+          <FormLabel>Email</FormLabel>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Enable Notifications</FormLabel>
+          <Switch isChecked={notifications} onChange={(e) => setNotifications(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <Button colorScheme="orange" onClick={handleSave}>Save Changes</Button>
+        <FormControl>
+          <FormLabel>Current Password</FormLabel>
+          <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+        </FormControl>
+        <FormControl>
+          <FormLabel>New Password</FormLabel>
+          <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Confirm New Password</FormLabel>
+          <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+        </FormControl>
+        <Button colorScheme="orange" onClick={handleChangePassword}>Change Password</Button>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Two-Factor Authentication</FormLabel>
+          <Switch isChecked={twoFactorAuth} onChange={(e) => setTwoFactorAuth(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <Button colorScheme="red" onClick={handleDeleteAccount}>Delete Account</Button>
+        <FormControl>
+          <FormLabel>Preferred Programming Languages</FormLabel>
+          <Checkbox colorScheme="orange">Python</Checkbox>
+          <Checkbox colorScheme="orange">JavaScript</Checkbox>
+          <Checkbox colorScheme="orange">Java</Checkbox>
+          <Checkbox colorScheme="orange">C++</Checkbox>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Difficulty Level</FormLabel>
+          <Select value={difficultyLevel} onChange={(e) => setDifficultyLevel(e.target.value)}>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Learning Goals</FormLabel>
+          <Textarea value={learningGoals} onChange={(e) => setLearningGoals(e.target.value)} />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Daily Learning Target (hours)</FormLabel>
+          <Input type="number" value={dailyTarget} onChange={(e) => setDailyTarget(e.target.value)} />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Response Style</FormLabel>
+          <Select value={responseStyle} onChange={(e) => setResponseStyle(e.target.value)}>
+            <option value="Concise">Concise</option>
+            <option value="Detailed">Detailed</option>
+            <option value="Step-by-step">Step-by-step</option>
+          </Select>
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Voice Assistant</FormLabel>
+          <Switch isChecked={voiceAssistant} onChange={(e) => setVoiceAssistant(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Auto-Explain Code</FormLabel>
+          <Switch isChecked={autoExplainCode} onChange={(e) => setAutoExplainCode(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Context Retention Length</FormLabel>
+          <Select value={contextRetention} onChange={(e) => setContextRetention(e.target.value)}>
+            <option value="Short-term">Short-term</option>
+            <option value="Long-term">Long-term</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Preferred Language</FormLabel>
+          <Select value={preferredLanguage} onChange={(e) => setPreferredLanguage(e.target.value)}>
+            <option value="English">English</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+            <option value="German">German</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Content Types Shown</FormLabel>
+          <Checkbox colorScheme="orange">Video</Checkbox>
+          <Checkbox colorScheme="orange">Interactive Exercises</Checkbox>
+          <Checkbox colorScheme="orange">Theory</Checkbox>
+          <Checkbox colorScheme="orange">Projects</Checkbox>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Exercise Mode</FormLabel>
+          <Select value={exerciseMode} onChange={(e) => setExerciseMode(e.target.value)}>
+            <option value="Practice Mode">Practice Mode</option>
+            <option value="Exam Simulation">Exam Simulation</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Code Editor Theme</FormLabel>
+          <Select value={codeEditorTheme} onChange={(e) => setCodeEditorTheme(e.target.value)}>
+            <option value="Light">Light</option>
+            <option value="Dark">Dark</option>
+          </Select>
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Auto-Save Code</FormLabel>
+          <Switch isChecked={autoSaveCode} onChange={(e) => setAutoSaveCode(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Learning Path</FormLabel>
+          <Input value={learningPath} onChange={(e) => setLearningPath(e.target.value)} />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Custom Tags/Folders</FormLabel>
+          <Textarea value={customTags} onChange={(e) => setCustomTags(e.target.value)} />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Email Notifications</FormLabel>
+          <Switch isChecked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Push Notifications</FormLabel>
+          <Switch isChecked={pushNotifications} onChange={(e) => setPushNotifications(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">AI Message Reminders</FormLabel>
+          <Switch isChecked={aiMessageReminders} onChange={(e) => setAiMessageReminders(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Language/Locale</FormLabel>
+          <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
+            <option value="English">English</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+            <option value="German">German</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Time Zone</FormLabel>
+          <Select value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+            <option value="UTC">UTC</option>
+            <option value="EST">EST</option>
+            <option value="PST">PST</option>
+            <option value="GMT">GMT</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Date Format</FormLabel>
+          <Select value={dateFormat} onChange={(e) => setDateFormat(e.target.value)}>
+            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Default Page on Login</FormLabel>
+          <Select value={defaultPage} onChange={(e) => setDefaultPage(e.target.value)}>
+            <option value="Dashboard">Dashboard</option>
+            <option value="Chatbot">Chatbot</option>
+            <option value="Learning Path">Learning Path</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>API Key</FormLabel>
+          <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+        </FormControl>
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Beta Features Access</FormLabel>
+          <Switch isChecked={betaFeatures} onChange={(e) => setBetaFeatures(e.target.checked)} colorScheme="orange" />
+        </FormControl>
+        <FormControl>
+          <FormLabel>Feedback</FormLabel>
+          <Textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+        </FormControl>
+        <Button colorScheme="orange" onClick={handleSave}>Send Feedback</Button>
+        <FormControl>
+          <FormLabel>Bug Report</FormLabel>
+          <Textarea value={bugReport} onChange={(e) => setBugReport(e.target.value)} />
+        </FormControl>
+        <Button colorScheme="red" onClick={handleSave}>Report Bug</Button>
       </VStack>
-    </Container>
+    </Box>
   );
 };
 

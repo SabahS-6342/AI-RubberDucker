@@ -1,7 +1,7 @@
 import { Flex, Button, Image, HStack, Link as ChakraLink, Box, useColorModeValue, IconButton, useDisclosure, VStack, Collapse, Menu, MenuButton, MenuList, MenuItem, MenuDivider } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
-import { FaUser, FaCog, FaHistory, FaSignOutAlt } from 'react-icons/fa'
+import { FaUser, FaCog, FaHistory, FaSignOutAlt, FaDollarSign } from 'react-icons/fa'
 import React, { useState, useEffect } from 'react'
 
 const NavLink = ({ to, children, isMobile = false }) => {
@@ -149,7 +149,7 @@ const NavBar = () => {
           {isLoggedIn && (
             <>
               <NavLink to="/dashboard">Dashboard</NavLink>
-              <NavLink to="/chatbot">AI Tutor</NavLink>
+              <NavLink to="/chat">AI Tutor</NavLink>
               <NavLink to="/learning-path">Learning Path</NavLink>
               <NavLink to="/study-materials">Study Materials</NavLink>
               <NavLink to="/practice">Practice</NavLink>
@@ -164,10 +164,10 @@ const NavBar = () => {
                 <MenuButton
                   as={Button}
                   variant="ghost"
-                  colorScheme="orange"
-                  size="md"
-                  fontWeight="medium"
-                  px={4}
+                colorScheme="orange"
+                size="md"
+                fontWeight="medium"
+                px={4}
                   leftIcon={<FaUser />}
                 >
                   Profile
@@ -182,7 +182,9 @@ const NavBar = () => {
                   <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
                     Settings
                   </MenuItem>
-                  <MenuDivider />
+                  <MenuItem icon={<FaDollarSign />} onClick={() => navigate('/pricing')}>
+                    Pricing Plans
+                  </MenuItem>
                   <MenuItem icon={<FaSignOutAlt />} onClick={handleLogout} color="red.500">
                     Logout
                   </MenuItem>
@@ -250,24 +252,24 @@ const NavBar = () => {
           p={4}
           display={{ md: "none" }}
           spacing={4}
-          bg={bgColor}
-          borderBottom="1px"
-          borderColor={borderColor}
+          divider={<Box borderBottom="1px" borderColor={borderColor} w="100%" />}
         >
           {isLoggedIn ? (
             <>
               <NavLink to="/dashboard" isMobile>Dashboard</NavLink>
-              <NavLink to="/chatbot" isMobile>AI Tutor</NavLink>
+              <NavLink to="/chat" isMobile>AI Tutor</NavLink>
               <NavLink to="/learning-path" isMobile>Learning Path</NavLink>
               <NavLink to="/study-materials" isMobile>Study Materials</NavLink>
               <NavLink to="/practice" isMobile>Practice</NavLink>
+              <NavLink to="/learning-history" isMobile>Learning History</NavLink>
               <NavLink to="/profile" isMobile>Profile</NavLink>
+              <NavLink to="/chat-history" isMobile>Chat History</NavLink>
               <NavLink to="/settings" isMobile>Settings</NavLink>
-              <Button
-                onClick={handleLogout}
+              <Button 
+                w="full"
                 colorScheme="red"
                 variant="ghost"
-                width="full"
+                onClick={handleLogout}
                 leftIcon={<FaSignOutAlt />}
               >
                 Logout
@@ -275,20 +277,20 @@ const NavBar = () => {
             </>
           ) : (
             <>
-              <Button
+              <Button 
                 as={RouterLink}
                 to="/login"
+                w="full"
+                variant="ghost" 
                 colorScheme="orange"
-                variant="ghost"
-                width="full"
               >
                 Log in
               </Button>
-              <Button
+              <Button 
                 as={RouterLink}
                 to="/register"
+                w="full"
                 colorScheme="orange"
-                width="full"
               >
                 Sign up
               </Button>

@@ -163,8 +163,8 @@ const CodingSection = () => {
       })
 
       // Generate feedback
-      setFeedback({
-        status: 'success',
+    setFeedback({
+      status: 'success',
         message: 'Code Analysis Complete!',
         details: 'Your code has been analyzed for correctness, efficiency, and style.',
         suggestions: [
@@ -256,9 +256,9 @@ const CodingSection = () => {
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 />
                 <IconButton
+                  colorScheme="orange"
                   aria-label="Send message"
                   icon={<ChatIcon />}
-                  colorScheme="orange"
                   onClick={handleSendMessage}
                 />
               </HStack>
@@ -266,140 +266,240 @@ const CodingSection = () => {
           </Box>
 
           {/* Coding Section */}
-          {showCoding && (
-            <Box flex={3} w="100%">
-              <VStack align="stretch" spacing={4}>
-                <HStack justify="space-between">
+          <Box flex={3} w="100%">
+              <VStack align="stretch" spacing={4} h="100%">
+              <HStack justify="space-between">
+                <Button
+                  leftIcon={<FaCode />}
+                  colorScheme="orange"
+                  variant="outline"
+                  onClick={onOpen}
+                >
+                  Select Exercise
+                </Button>
+                <HStack>
                   <Select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    w="200px"
+                    w="150px"
+                    borderColor="orange.200"
+                    _hover={{ borderColor: 'orange.300' }}
                   >
                     <option value="python">Python</option>
                     <option value="javascript">JavaScript</option>
                     <option value="java">Java</option>
                     <option value="cpp">C++</option>
                   </Select>
-                  <Button
-                    leftIcon={<FaPlay />}
+                  <IconButton
+                    icon={<FaPlay />}
                     colorScheme="green"
+                    aria-label="Run code"
+                    onClick={analyzeCode}
+                    isLoading={isAnalyzing}
+                  />
+                  <Button
+                    colorScheme="orange"
                     onClick={analyzeCode}
                     isLoading={isAnalyzing}
                   >
-                    Run Code
+                    Judge My Code
                   </Button>
+                  <IconButton
+                    icon={<FaRedo />}
+                    colorScheme="orange"
+                    aria-label="Reset code"
+                    onClick={() => setCode('')}
+                  />
                 </HStack>
+              </HStack>
 
-                <Textarea
-                  ref={codeEditorRef}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="Write your code here..."
-                  fontFamily="monospace"
-                  minH="300px"
+              {selectedExercise && (
+                <Box
                   p={4}
-                  borderRadius="md"
-                  borderColor={borderColor}
-                />
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor="orange.200"
+                  bg="orange.50"
+                >
+                  <VStack align="stretch" spacing={2}>
+                    <HStack justify="space-between">
+                      <Heading size="md">{selectedExercise.title}</Heading>
+                      <Badge colorScheme={selectedExercise.difficulty === 'Easy' ? 'green' : 'orange'}>
+                        {selectedExercise.difficulty}
+                      </Badge>
+                    </HStack>
+                    <Text>{selectedExercise.description}</Text>
+                    <Collapse in={showHistory}>
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>Test Cases:</Text>
+                        {selectedExercise.testCases.map((testCase, index) => (
+                          <Box key={index} mb={2}>
+                            <Text fontSize="sm">Input: {JSON.stringify(testCase.input)}</Text>
+                            <Text fontSize="sm">Expected Output: {JSON.stringify(testCase.output)}</Text>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Collapse>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      rightIcon={showHistory ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                      onClick={() => setShowHistory(!showHistory)}
+                    >
+                      {showHistory ? 'Hide Details' : 'Show Details'}
+                    </Button>
+                  </VStack>
+                </Box>
+              )}
+
+              <Box
+                border="1px"
+                  borderColor="orange.200"
+                  rounded="md"
+                  p={2}
+                  bg="orange.50"
+                  flex="1"
+                >
+                  <Textarea
+                  ref={codeEditorRef}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={`Enter your ${language} code here...`}
+                    minH="400px"
+                    fontFamily="monospace"
+                    bg="white"
+                    _focus={{
+                      borderColor: 'orange.300',
+                      boxShadow: '0 0 0 1px var(--chakra-colors-orange-300)'
+                    }}
+                  />
+                </Box>
 
                 {feedback && (
-                  <Box
-                    borderWidth="1px"
-                    borderRadius="lg"
-                    p={4}
-                    bg={feedback.status === 'success' ? 'green.50' : 'red.50'}
+                  <Box 
+                    p={4} 
+                    rounded="lg" 
+                    shadow="md" 
+                    borderTop="4px" 
+                    borderColor="orange.400"
+                    bg="white"
                   >
-                    <VStack align="stretch" spacing={3}>
-                      <Heading size="md">{feedback.message}</Heading>
-                      <Text>{feedback.details}</Text>
-                      
-                      {feedback.suggestions && (
-                        <Box>
-                          <Text fontWeight="bold">Suggestions:</Text>
-                          <List spacing={2}>
-                            {feedback.suggestions.map((suggestion, index) => (
-                              <ListItem key={index}>
-                                <ListIcon as={FaLightbulb} color="orange.500" />
-                                {suggestion}
-                              </ListItem>
-                            ))}
-                          </List>
-                        </Box>
-                      )}
+                    <VStack align="stretch" spacing={4}>
+                      <Heading size="md" bgGradient="linear(to-r, orange.400, orange.600)" bgClip="text">
+                      Analysis Results
+                      </Heading>
+                    
+                    {codeMetrics && (
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>Code Metrics:</Text>
+                        <HStack spacing={4}>
+                          <Badge colorScheme="blue">Lines: {codeMetrics.lines}</Badge>
+                          <Badge colorScheme="purple">Functions: {codeMetrics.functions}</Badge>
+                          <Badge colorScheme={codeMetrics.complexity === 'Low' ? 'green' : 'orange'}>
+                            Complexity: {codeMetrics.complexity}
+                          </Badge>
+                          <Badge colorScheme="teal">
+                            Time: {codeMetrics.executionTime.toFixed(2)}ms
+                          </Badge>
+                        </HStack>
+                      </Box>
+                    )}
 
-                      {codeMetrics && (
-                        <Box>
-                          <Text fontWeight="bold">Code Metrics:</Text>
-                          <HStack spacing={4}>
-                            <Badge colorScheme="blue">Lines: {codeMetrics.lines}</Badge>
-                            <Badge colorScheme="green">Functions: {codeMetrics.functions}</Badge>
-                            <Badge colorScheme="purple">Complexity: {codeMetrics.complexity}</Badge>
-                            <Badge colorScheme="orange">
-                              Time: {codeMetrics.executionTime.toFixed(2)}ms
-                            </Badge>
-                          </HStack>
-                        </Box>
-                      )}
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Suggestions:</Text>
+                      <List spacing={2}>
+                        {feedback.suggestions.map((suggestion, index) => (
+                          <ListItem key={index}>
+                            <ListIcon as={FaLightbulb} color="orange.500" />
+                            {suggestion}
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Best Practices:</Text>
+                      <List spacing={2}>
+                        {feedback.bestPractices.map((practice, index) => (
+                          <ListItem key={index}>
+                            <ListIcon as={CheckIcon} color="green.500" />
+                            {practice}
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Performance:</Text>
+                      <VStack align="stretch" spacing={2}>
+                        <HStack>
+                          <Text>Score:</Text>
+                          <Badge colorScheme={feedback.performance.score === 'Good' ? 'green' : 'orange'}>
+                            {feedback.performance.score}
+                          </Badge>
+                        </HStack>
+                        <List spacing={2}>
+                          {feedback.performance.notes.map((note, index) => (
+                            <ListItem key={index}>
+                              <ListIcon as={InfoIcon} color="blue.500" />
+                              {note}
+                            </ListItem>
+                          ))}
+                        </List>
+                      </VStack>
+                    </Box>
                     </VStack>
                   </Box>
                 )}
               </VStack>
             </Box>
-          )}
         </Flex>
-
-        {/* Exercise Drawer */}
-        <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="md">
-          <DrawerOverlay />
-          <DrawerContent>
-            <DrawerCloseButton />
-            <DrawerHeader>Available Exercises</DrawerHeader>
-            <DrawerBody>
-              <VStack spacing={4} align="stretch">
-                {codingExercises.map((exercise) => (
-                  <Box
-                    key={exercise.id}
-                    p={4}
-                    borderWidth="1px"
-                    borderRadius="md"
-                    cursor="pointer"
-                    onClick={() => handleExerciseSelect(exercise)}
-                    _hover={{ bg: 'gray.50' }}
-                  >
-                    <HStack justify="space-between">
-                      <VStack align="start" spacing={1}>
-                        <Heading size="sm">{exercise.title}</Heading>
-                        <Badge colorScheme={
-                          exercise.difficulty === 'Easy' ? 'green' :
-                          exercise.difficulty === 'Medium' ? 'orange' : 'red'
-                        }>
-                          {exercise.difficulty}
-                        </Badge>
-                      </VStack>
-                      <Icon as={FaCode} />
-                    </HStack>
-                    <Text mt={2} fontSize="sm" color="gray.600">
-                      {exercise.description}
-                    </Text>
-                  </Box>
-                ))}
-              </VStack>
-            </DrawerBody>
-          </DrawerContent>
-        </Drawer>
-
-        {/* Exercise Selection Button */}
-        <Button
-          leftIcon={<FaCode />}
-          colorScheme="orange"
-          onClick={onOpen}
-          position="fixed"
-          bottom={4}
-          right={4}
-        >
-          Choose Exercise
-        </Button>
       </VStack>
+
+      {/* Exercise Selection Drawer */}
+      <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="md">
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>
+            <Heading size="md">Select Coding Exercise</Heading>
+          </DrawerHeader>
+
+          <DrawerBody>
+            <VStack spacing={4} align="stretch">
+              {codingExercises.map((exercise) => (
+                <Box
+                  key={exercise.id}
+                  p={4}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor={selectedExercise?.id === exercise.id ? 'orange.400' : 'gray.200'}
+                  bg={selectedExercise?.id === exercise.id ? 'orange.50' : 'white'}
+                  cursor="pointer"
+                  onClick={() => {
+                    handleExerciseSelect(exercise)
+                    onClose()
+                  }}
+                  _hover={{
+                    borderColor: 'orange.300',
+                    bg: 'orange.50'
+                  }}
+                >
+                  <HStack justify="space-between" mb={2}>
+                    <Heading size="sm">{exercise.title}</Heading>
+                    <Badge colorScheme={exercise.difficulty === 'Easy' ? 'green' : 'orange'}>
+                      {exercise.difficulty}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="gray.600">
+                    {exercise.description}
+                  </Text>
+                </Box>
+              ))}
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </Box>
   )
 }

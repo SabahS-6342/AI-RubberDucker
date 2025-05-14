@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Box, Container, Heading, Text, Button, VStack, Image, Stack, Input, FormControl, FormLabel, HStack, SimpleGrid, Icon, useColorModeValue, Divider, useToast } from '@chakra-ui/react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FaGoogle, FaGithub } from 'react-icons/fa'
-import { login } from '../services/auth'
+import { Link, useNavigate } from 'react-router-dom'
+import { FaGithub } from 'react-icons/fa'
 import GoogleAuthButton from '../components/GoogleAuthButton'
+import config from '../config';
 
 function SocialButton({ icon, label, ...props }) {
   return (
@@ -21,92 +21,72 @@ function SocialButton({ icon, label, ...props }) {
   )
 }
 
-const Login = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const toast = useToast()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from || '/dashboard'
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      const response = await login(email, password)
-      if (response.token) {
-        localStorage.setItem('token', response.token)
-        // Dispatch auth state change event
-        window.dispatchEvent(new Event('authStateChanged'))
-        toast({
-          title: 'Login successful',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
-        navigate(from, { replace: true })
-      }
-    } catch (error) {
+  const handleLogin = async () => {
+    if (!email || !password) {
       toast({
-        title: 'Login failed',
-        description: error.message || 'Please check your credentials',
+        title: 'Error',
+        description: 'Please fill in all fields',
         status: 'error',
         duration: 3000,
         isClosable: true,
-      })
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Login successful, token received:', data.token ? 'Present' : 'Not present');
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        // Dispatch custom event for auth state change
+        console.log('Dispatching authStateChanged event');
+        window.dispatchEvent(new Event('authStateChanged'));
+        toast({
+          title: 'Success',
+          description: 'Successfully logged in!',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error(data.detail || 'Login failed');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Something went wrong',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  const handleGoogleLogin = async () => {
-    try {
-      const response = await GoogleAuthButton.handleGoogleLogin()
-      if (response.token) {
-        localStorage.setItem('token', response.token)
-        window.dispatchEvent(new Event('authStateChanged'))
-        toast({
-          title: 'Login successful',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
-        navigate(from, { replace: true })
-      }
-    } catch (error) {
-      toast({
-        title: 'Google login failed',
-        description: error.message || 'Please try again',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      })
-    }
-  }
+  };
 
   return (
-    <Box minH="calc(100vh - 60px)" position="relative" overflow="hidden">
-      {/* Background with Pattern and Gradient */}
-      <Box
-        position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        bgGradient="linear(to-br, orange.300, orange.200)"
-        opacity={0.1}
-        backgroundImage="url('data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ED8936' fill-opacity='1' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E')"
-      />
-
-      <Container maxW="container.lg" py={20} position="relative">
-        <Stack
-          direction={{ base: 'column', lg: 'row' }}
-          spacing={{ base: 8, lg: 16 }}
-          align="center"
-          justify="center"
-        >
+    <Box minH="100vh" bg="gray.50" py={12}>
+      <Container maxW="container.xl">
+        <Stack direction={{ base: 'column', lg: 'row' }} spacing={12} align="center">
           {/* Left Side - Welcome Message */}
           <VStack
             spacing={8}
@@ -205,7 +185,7 @@ const Login = () => {
                 </Box>
 
                 <Button
-                  onClick={handleSubmit}
+                  onClick={handleLogin}
                   colorScheme="orange"
                   size="lg"
                   w="full"
@@ -226,16 +206,23 @@ const Login = () => {
                 </HStack>
 
                 <SimpleGrid columns={2} spacing={4} w="full">
-                  <SocialButton
-                    icon={FaGoogle}
+                  <GoogleAuthButton 
                     label="Google"
-                    onClick={handleGoogleLogin}
-                    color="gray.600"
+                    redirectPath="/dashboard"
+                    onSuccess={(result) => {
+                      toast({
+                        title: 'Login successful',
+                        status: 'success',
+                        duration: 3000,
+                        isClosable: true,
+                      });
+                      navigate('/dashboard');
+                    }}
                   />
                   <SocialButton
                     icon={FaGithub}
                     label="GitHub"
-                    onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`}
+                    onClick={() => window.location.href = `${config.API_BASE_URL}/api/auth/github/login`}
                   />
                 </SimpleGrid>
               </VStack>
@@ -244,7 +231,7 @@ const Login = () => {
         </Stack>
       </Container>
     </Box>
-  )
+  );
 }
 
-export default Login 
+export default Login; 

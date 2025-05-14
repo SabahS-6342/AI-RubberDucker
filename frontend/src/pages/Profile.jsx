@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -20,18 +20,26 @@ import {
   Badge,
   Progress,
   useToast,
-  Textarea,
+  Editable,
+  EditablePreview,
+  EditableInput,
+  Flex,
+  Tag,
+  TagLabel,
+  TagCloseButton,
+  InputGroup,
+  InputRightElement,
+  IconButton,
 } from '@chakra-ui/react';
-import { FaUser, FaGraduationCap, FaCog, FaBell } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { getUserProfile, updateUserProfile, updateUserPreferences } from '../services/auth';
+import { FaUser, FaGraduationCap, FaCog, FaBell, FaPlus, FaCamera } from 'react-icons/fa';
+import config from '../config';
 
 const Profile = () => {
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toast = useToast();
-  const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const [preferences, setPreferences] = useState({
     learningStyle: 'visual',
@@ -40,105 +48,305 @@ const Profile = () => {
     dailyGoal: 60, // minutes
   });
 
-  const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState({
+    username: '',
+    email: '',
+    bio: '',
+    interests: [],
+    profile_picture: '',
+  });
+
+  const [progress, setProgress] = useState({
+    overall_progress: 0,
+    current_streak: 0,
+    topics_mastered: {
+      count: 0,
+      total: 0,
+      topics: []
+    }
+  });
+
+  const [newInterest, setNewInterest] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const userData = await getUserProfile();
-        setProfile(userData);
-        setEditedProfile(userData);
-        
-        // Load preferences if they exist in the user data
-        if (userData.preferences) {
-          setPreferences(userData.preferences);
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load user data. Please try again.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-        navigate('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Load user data from localStorage
+    const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    setProfile(prev => ({
+      ...prev,
+      username: userData.username || '',
+      email: userData.email || '',
+      bio: userData.bio || '',
+      interests: userData.interests || [],
+      profile_picture: userData.profile_picture || '',
+    }));
 
-    loadUserData();
-  }, [navigate, toast]);
+    // Fetch progress data
+    fetchProgressData();
+  }, []);
 
-  const handleSaveProfile = async () => {
-    setIsSaving(true);
+  const fetchProgressData = async () => {
     try {
-      const updatedProfile = await updateUserProfile(editedProfile);
-      setProfile(updatedProfile);
-      setIsEditing(false);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${config.API_BASE_URL}/api/users/progress`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch progress data');
+      }
+
+      const data = await response.json();
+      setProgress(data);
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load progress data',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handlePictureUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an image file',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Please upload an image smaller than 5MB',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${config.API_BASE_URL}/api/users/profile/picture`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to upload profile picture');
+      }
+
+      // Update profile with new picture URL
+      setProfile(prev => ({
+        ...prev,
+        profile_picture: data.picture_url,
+      }));
+
+      // Update local storage
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({
+        ...currentUser,
+        profile_picture: data.picture_url,
+      }));
+
       toast({
         title: 'Success',
-        description: 'Profile updated successfully',
+        description: 'Profile picture updated successfully',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
     } catch (error) {
+      console.error('Profile picture upload error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update profile. Please try again.',
+        description: error.message || 'Failed to upload profile picture',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
     } finally {
-      setIsSaving(false);
+      setIsUploading(false);
     }
   };
 
-  const handleSavePreferences = async () => {
-    try {
-      await updateUserPreferences(preferences);
+  const handleAddInterest = () => {
+    if (!newInterest.trim()) return;
+    
+    if (profile.interests.length >= 10) {
       toast({
-        title: 'Success',
-        description: 'Preferences updated successfully',
+        title: 'Maximum Interests Reached',
+        description: 'You can only have up to 10 interests',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (profile.interests.includes(newInterest.trim())) {
+      toast({
+        title: 'Duplicate Interest',
+        description: 'This interest is already in your list',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setProfile(prev => ({
+      ...prev,
+      interests: [...prev.interests, newInterest.trim()]
+    }));
+    setNewInterest('');
+  };
+
+  const handleRemoveInterest = (interestToRemove) => {
+    setProfile(prev => ({
+      ...prev,
+      interests: prev.interests.filter(interest => interest !== interestToRemove)
+    }));
+  };
+
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Validate username before sending
+      if (profile.username.length < 3 || profile.username.length > 50) {
+        throw new Error('Username must be between 3 and 50 characters');
+      }
+
+      const response = await fetch(`${config.API_BASE_URL}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bio: profile.bio.trim(),
+          image_url: profile.profile_picture
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update profile');
+      }
+      
+      // Update local storage with new user data
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({
+        ...currentUser,
+        ...data.user,
+      }));
+
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile has been successfully updated',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
+
+      setIsEditing(false);
     } catch (error) {
+      console.error('Profile update error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update preferences. Please try again.',
+        description: error.message || 'Failed to update profile',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <Box minH="100vh" bg={bgColor} py={8}>
-        <Container maxW="container.xl">
-          <VStack spacing={8} align="stretch">
-            <Box p={6} bg={cardBg} borderRadius="lg" borderWidth="1px" borderColor={borderColor}>
-              <Text>Loading profile...</Text>
-            </Box>
-          </VStack>
-        </Container>
-      </Box>
-    );
-  }
+  const handleSavePreferences = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-  if (!profile) {
-    return null;
-  }
+      const response = await fetch(`${config.API_BASE_URL}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          preferences: JSON.stringify(preferences),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to update preferences');
+      }
+
+    toast({
+      title: 'Preferences Updated',
+      description: 'Your learning preferences have been saved',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update preferences',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Box minH="100vh" bg={bgColor} py={8}>
@@ -154,94 +362,146 @@ const Profile = () => {
           >
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
               <Box textAlign="center">
+                <Box position="relative" display="inline-block">
                 <Avatar
                   size="2xl"
-                  name={profile.username}
-                  src={profile.avatar_url}
+                    name={profile.username}
+                    src={profile.profile_picture ? `${config.API_BASE_URL}${profile.profile_picture}` : undefined}
                   mb={4}
                 />
+                  {isEditing && (
+                    <IconButton
+                      aria-label="Change profile picture"
+                      icon={<FaCamera />}
+                      size="sm"
+                      colorScheme="orange"
+                      position="absolute"
+                      bottom="4"
+                      right="0"
+                      onClick={() => fileInputRef.current?.click()}
+                      isLoading={isUploading}
+                    />
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handlePictureUpload}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                  />
+                </Box>
                 {isEditing ? (
                   <VStack spacing={4} align="stretch">
                     <FormControl>
                       <FormLabel>Username</FormLabel>
                       <Input
-                        value={editedProfile.username}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, username: e.target.value })}
+                        value={profile.username}
+                        onChange={(e) => setProfile(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="Enter username"
                       />
                     </FormControl>
                     <FormControl>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Bio</FormLabel>
                       <Input
-                        value={editedProfile.email}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, email: e.target.value })}
-                        type="email"
+                        value={profile.bio}
+                        onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                        placeholder="Tell us about yourself"
                       />
                     </FormControl>
+                    <FormControl>
+                      <FormLabel>Interests</FormLabel>
+                      <InputGroup>
+                        <Input
+                          value={newInterest}
+                          onChange={(e) => setNewInterest(e.target.value)}
+                          placeholder="Add an interest"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddInterest();
+                            }
+                          }}
+                        />
+                        <InputRightElement>
+                          <Button
+                            size="sm"
+                            colorScheme="orange"
+                            onClick={handleAddInterest}
+                            isDisabled={!newInterest.trim()}
+                          >
+                            <FaPlus />
+                          </Button>
+                        </InputRightElement>
+                      </InputGroup>
+                    </FormControl>
+                    <HStack wrap="wrap" spacing={2}>
+                      {profile.interests.map((interest, index) => (
+                        <Tag
+                          key={index}
+                          size="md"
+                          borderRadius="full"
+                          variant="solid"
+                          colorScheme="orange"
+                        >
+                          <TagLabel>{interest}</TagLabel>
+                          <TagCloseButton onClick={() => handleRemoveInterest(interest)} />
+                        </Tag>
+                      ))}
+                    </HStack>
+                    <HStack>
+                      <Button
+                        colorScheme="orange"
+                        onClick={handleSaveProfile}
+                        isLoading={isLoading}
+                      >
+                        Save Changes
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </HStack>
                   </VStack>
                 ) : (
                   <>
                     <Heading size="md">{profile.username}</Heading>
-                    <Text color="gray.600">{profile.email}</Text>
+                <Text color="gray.600">{profile.email}</Text>
+                    <Button
+                      mt={4}
+                      variant="outline"
+                      colorScheme="orange"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Edit Profile
+                    </Button>
                   </>
                 )}
               </Box>
               <Box gridColumn={{ md: 'span 2' }}>
                 <VStack align="stretch" spacing={4}>
                   <Box>
-                    <HStack justify="space-between" align="center" mb={2}>
-                      <Text fontWeight="medium">About Me</Text>
-                      <Button
-                        size="sm"
-                        colorScheme="orange"
-                        variant="ghost"
-                        onClick={() => setIsEditing(!isEditing)}
-                      >
-                        {isEditing ? 'Cancel' : 'Edit'}
-                      </Button>
-                    </HStack>
-                    {isEditing ? (
-                      <Textarea
-                        value={editedProfile.bio || ''}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, bio: e.target.value })}
-                        placeholder="Tell us about yourself..."
-                      />
-                    ) : (
-                      <Text color="gray.600">{profile.bio || 'No bio provided'}</Text>
-                    )}
+                    <Text fontWeight="medium" mb={2}>
+                      About Me
+                    </Text>
+                    <Text color="gray.600">{profile.bio || 'No bio provided'}</Text>
                   </Box>
                   <Box>
                     <Text fontWeight="medium" mb={2}>
                       Interests
                     </Text>
-                    {isEditing ? (
-                      <Input
-                        value={editedProfile.interests?.join(', ') || ''}
-                        onChange={(e) => setEditedProfile({
-                          ...editedProfile,
-                          interests: e.target.value.split(',').map(i => i.trim()).filter(i => i)
-                        })}
-                        placeholder="Enter interests separated by commas"
-                      />
-                    ) : (
-                      <HStack spacing={2}>
-                        {profile.interests?.map((interest, index) => (
-                          <Badge key={index} colorScheme="orange">
-                            {interest}
-                          </Badge>
-                        ))}
-                      </HStack>
-                    )}
+                    <HStack spacing={2} wrap="wrap">
+                      {profile.interests.map((interest, index) => (
+                        <Badge key={index} colorScheme="orange">
+                          {interest}
+                        </Badge>
+                      ))}
+                      {profile.interests.length === 0 && (
+                        <Text color="gray.500">No interests added yet</Text>
+                      )}
+                    </HStack>
                   </Box>
-                  {isEditing && (
-                    <Button
-                      colorScheme="orange"
-                      onClick={handleSaveProfile}
-                      isLoading={isSaving}
-                      loadingText="Saving..."
-                    >
-                      Save Changes
-                    </Button>
-                  )}
                 </VStack>
               </Box>
             </SimpleGrid>
@@ -320,6 +580,7 @@ const Profile = () => {
               colorScheme="orange"
               mt={6}
               onClick={handleSavePreferences}
+              isLoading={isLoading}
             >
               Save Preferences
             </Button>
@@ -340,27 +601,55 @@ const Profile = () => {
               <Box>
                 <HStack justify="space-between" mb={2}>
                   <Text fontWeight="medium">Overall Progress</Text>
-                  <Text color="orange.500">{profile.progress?.overall || 0}%</Text>
+                  <Text color="orange.500">{progress.overall_progress}%</Text>
                 </HStack>
-                <Progress value={profile.progress?.overall || 0} colorScheme="orange" size="sm" />
+                <Progress 
+                  value={progress.overall_progress} 
+                  colorScheme="orange" 
+                  size="sm"
+                  hasStripe
+                  isAnimated
+                />
               </Box>
               <Box>
                 <HStack justify="space-between" mb={2}>
                   <Text fontWeight="medium">Current Streak</Text>
-                  <Text color="orange.500">{profile.progress?.streak || 0} days</Text>
+                  <Text color="orange.500">{progress.current_streak} days</Text>
                 </HStack>
-                <Progress value={profile.progress?.streak || 0} colorScheme="green" size="sm" />
+                <Progress 
+                  value={(progress.current_streak / 7) * 100} 
+                  colorScheme="green" 
+                  size="sm"
+                  hasStripe
+                  isAnimated
+                />
               </Box>
               <Box>
                 <HStack justify="space-between" mb={2}>
                   <Text fontWeight="medium">Topics Mastered</Text>
-                  <Text color="orange.500">{profile.progress?.topicsMastered || 0}/{profile.progress?.totalTopics || 0}</Text>
+                  <Text color="orange.500">
+                    {progress.topics_mastered.count}/{progress.topics_mastered.total}
+                  </Text>
                 </HStack>
                 <Progress 
-                  value={profile.progress?.totalTopics ? (profile.progress.topicsMastered / profile.progress.totalTopics) * 100 : 0} 
+                  value={(progress.topics_mastered.count / progress.topics_mastered.total) * 100} 
                   colorScheme="blue" 
-                  size="sm" 
+                  size="sm"
+                  hasStripe
+                  isAnimated
                 />
+                {progress.topics_mastered.topics.length > 0 && (
+                  <Box mt={2}>
+                    <Text fontSize="sm" color="gray.600">Mastered Topics:</Text>
+                    <HStack spacing={2} mt={1} wrap="wrap">
+                      {progress.topics_mastered.topics.map((topic, index) => (
+                        <Badge key={index} colorScheme="blue">
+                          {topic}
+                        </Badge>
+                      ))}
+                    </HStack>
+                  </Box>
+                )}
               </Box>
             </VStack>
           </Box>
