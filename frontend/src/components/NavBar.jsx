@@ -1,7 +1,7 @@
 import { Flex, Button, Image, HStack, Link as ChakraLink, Box, useColorModeValue, IconButton, useDisclosure, VStack, Collapse, Menu, MenuButton, MenuList, MenuItem, MenuDivider } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
-import { FaUser, FaCog, FaHistory, FaSignOutAlt, FaDollarSign } from 'react-icons/fa'
+import { FaUser, FaCog, FaHistory, FaSignOutAlt } from 'react-icons/fa'
 import React, { useState, useEffect } from 'react'
 
 const NavLink = ({ to, children, isMobile = false }) => {
@@ -182,11 +182,9 @@ const NavBar = () => {
                   <MenuItem icon={<FaCog />} onClick={() => navigate('/settings')}>
                     Settings
                   </MenuItem>
-                  <MenuItem icon={<FaDollarSign />} onClick={() => navigate('/pricing')}>
-                    Pricing Plans
-                  </MenuItem>
+                  <MenuDivider />
                   <MenuItem icon={<FaSignOutAlt />} onClick={handleLogout} color="red.500">
-                    Logout
+                Logout
                   </MenuItem>
                 </MenuList>
               </Menu>

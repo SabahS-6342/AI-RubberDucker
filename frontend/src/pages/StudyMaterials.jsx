@@ -25,7 +25,7 @@ import {
   Skeleton,
 } from '@chakra-ui/react';
 import { FaSearch, FaBook, FaVideo, FaFileAlt, FaExternalLinkAlt } from 'react-icons/fa';
-import { getStudyMaterials } from '../services/learningPath';
+import { getStudyMaterials } from '../services/studyMaterials';
 
 const ResourceCard = ({ title, description, type, difficulty, url }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
@@ -96,16 +96,23 @@ const ResourceCard = ({ title, description, type, difficulty, url }) => {
 };
 
 const StudyMaterials = () => {
-  const [materials, setMaterials] = useState([]);
-  const toast = useToast();
   const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const toast = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const [resources, setResources] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchMaterials = async () => {
+    const fetchResources = async () => {
       try {
+        setIsLoading(true);
         const data = await getStudyMaterials();
-        setMaterials(data);
-      } catch (error) {
+        setResources(data);
+      } catch (err) {
+        setError(err.message);
         toast({
           title: 'Error',
           description: 'Failed to load study materials',
@@ -113,28 +120,124 @@ const StudyMaterials = () => {
           duration: 5000,
           isClosable: true,
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchMaterials();
+    fetchResources();
   }, [toast]);
 
-  return (
-    <Box minH="100vh" bg={bgColor} p={8}>
-      <VStack spacing={8} align="stretch" maxW="1200px" mx="auto">
-        <VStack align="start" spacing={1}>
-          <Heading size="xl">Study Materials</Heading>
-          <Text color="gray.600">Explore additional resources to enhance your learning</Text>
-        </VStack>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {materials.map((material) => (
-            <Box key={material.id} p={6} bg={useColorModeValue('white', 'gray.700')} borderRadius="lg" borderWidth="1px" borderColor={useColorModeValue('gray.200', 'gray.600')}>
-              <Heading size="md">{material.title}</Heading>
-              <Text color="gray.600">{material.description}</Text>
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = selectedType === 'all' || resource.type === selectedType;
+    const matchesDifficulty = selectedDifficulty === 'all' || resource.difficulty === selectedDifficulty;
+    return matchesSearch && matchesType && matchesDifficulty;
+  });
+
+  if (isLoading) {
+    return (
+      <Box minH="100vh" bg={bgColor} py={8}>
+        <Container maxW="container.xl">
+          <VStack spacing={8} align="stretch">
+            <Box>
+              <Heading size="xl" mb={2}>
+                Study Materials
+              </Heading>
+              <Text color="gray.600">
+                Access curated high-quality learning resources
+              </Text>
             </Box>
-          ))}
-        </SimpleGrid>
-      </VStack>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} height="200px" borderRadius="lg" />
+              ))}
+            </SimpleGrid>
+          </VStack>
+        </Container>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Center minH="100vh">
+        <Alert status="error" maxW="container.md">
+          <AlertIcon />
+          {error}
+        </Alert>
+      </Center>
+    );
+  }
+
+  return (
+    <Box minH="100vh" bg={bgColor} py={8}>
+      <Container maxW="container.xl">
+        <VStack spacing={8} align="stretch">
+          <Box>
+            <Heading size="xl" mb={2}>
+              Study Materials
+            </Heading>
+            <Text color="gray.600">
+              Access curated high-quality learning resources
+            </Text>
+          </Box>
+
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <Icon as={FaSearch} color="gray.400" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search resources..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </InputGroup>
+            <Select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="article">Articles</option>
+              <option value="video">Videos</option>
+              <option value="book">Books</option>
+            </Select>
+            <Select
+              value={selectedDifficulty}
+              onChange={(e) => setSelectedDifficulty(e.target.value)}
+            >
+              <option value="all">All Difficulties</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </Select>
+          </SimpleGrid>
+
+          {filteredResources.length === 0 ? (
+            <Center py={8}>
+              <Alert status="info" maxW="container.md">
+                <AlertIcon />
+                No resources found matching your criteria
+              </Alert>
+            </Center>
+          ) : (
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              {filteredResources.map((resource, index) => (
+                <ResourceCard
+                  key={index}
+                  title={resource.title}
+                  description={resource.description}
+                  type={resource.type}
+                  difficulty={resource.difficulty}
+                  url={resource.url}
+                />
+              ))}
+            </SimpleGrid>
+          )}
+        </VStack>
+      </Container>
     </Box>
   );
 };

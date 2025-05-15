@@ -1,321 +1,507 @@
-import { useState } from 'react';
-import { Box, Container, Heading, Text, Button, VStack, Image, Stack, Input, FormControl, FormLabel, HStack, SimpleGrid, Icon, useColorModeValue, Divider, useToast, Checkbox } from '@chakra-ui/react'
-import { Link, useNavigate } from 'react-router-dom'
-import { FaGithub } from 'react-icons/fa'
-import GoogleAuthButton from '../components/GoogleAuthButton'
+import { useState, useRef } from 'react'
+import {
+  Box,
+  Flex,
+  VStack,
+  Text,
+  Button,
+  Select,
+  Textarea,
+  useToast,
+  Heading,
+  useColorModeValue,
+  Input,
+  IconButton,
+  HStack,
+  Badge,
+  Icon,
+  Collapse,
+  useDisclosure,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerHeader,
+  DrawerBody,
+  DrawerCloseButton,
+  List,
+  ListItem,
+  ListIcon,
+} from '@chakra-ui/react'
+import { 
+  ChatIcon, 
+  CheckIcon, 
+  WarningIcon, 
+  TimeIcon, 
+  StarIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  SettingsIcon,
+  QuestionIcon,
+  InfoIcon,
+} from '@chakra-ui/icons'
+import { FaCode, FaLightbulb, FaHistory, FaPlay, FaRedo, FaRobot } from 'react-icons/fa'
 
-function SocialButton({ icon, label, ...props }) {
-  return (
-    <Button
-      variant="outline"
-      size="lg"
-      borderColor="gray.300"
-      _hover={{ bg: 'gray.50', borderColor: 'gray.400' }}
-      leftIcon={<Icon as={icon} />}
-      iconSpacing={3}
-      {...props}
-    >
-      {label}
-    </Button>
-  )
-}
+const CodingSection = () => {
+  const [showCoding, setShowCoding] = useState(false)
+  const [language, setLanguage] = useState('python')
+  const [code, setCode] = useState('')
+  const [feedback, setFeedback] = useState(null)
+  const [messages, setMessages] = useState([
+    { text: "Hello! I'm your coding companion. How can I help you today?", isUser: false }
+  ])
+  const [inputMessage, setInputMessage] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [codeHistory, setCodeHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [executionTime, setExecutionTime] = useState(null)
+  const [codeMetrics, setCodeMetrics] = useState(null)
+  const [selectedExercise, setSelectedExercise] = useState(null)
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const toast = useToast()
+  const bgColor = useColorModeValue('white', 'gray.800')
+  const borderColor = useColorModeValue('gray.200', 'gray.700')
+  const chatBg = useColorModeValue('gray.50', 'gray.700')
+  const codeEditorRef = useRef(null)
 
-function Register() {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const toast = useToast();
-  const navigate = useNavigate();
+  const codingExercises = [
+    {
+      id: 'fibonacci',
+      title: 'Fibonacci Sequence',
+      difficulty: 'Easy',
+      description: 'Write a function to generate the Fibonacci sequence up to n terms',
+      testCases: [
+        { input: 5, output: [0, 1, 1, 2, 3] },
+        { input: 8, output: [0, 1, 1, 2, 3, 5, 8, 13] }
+      ],
+      hints: [
+        'Use recursion or iteration',
+        'Consider edge cases (n = 0, 1)',
+        'Optimize for large n values'
+      ]
+    },
+    {
+      id: 'palindrome',
+      title: 'Palindrome Checker',
+      difficulty: 'Easy',
+      description: 'Write a function to check if a string is a palindrome',
+      testCases: [
+        { input: 'racecar', output: true },
+        { input: 'hello', output: false }
+      ],
+      hints: [
+        'Consider case sensitivity',
+        'Handle spaces and punctuation',
+        'Think about time complexity'
+      ]
+    },
+    {
+      id: 'sorting',
+      title: 'Quick Sort',
+      difficulty: 'Medium',
+      description: 'Implement the Quick Sort algorithm',
+      testCases: [
+        { input: [5, 2, 8, 1, 9], output: [1, 2, 5, 8, 9] },
+        { input: [3, 1, 4, 1, 5, 9], output: [1, 1, 3, 4, 5, 9] }
+      ],
+      hints: [
+        'Choose a good pivot',
+        'Handle duplicate values',
+        'Consider space complexity'
+      ]
+    }
+  ]
 
-  const handleRegister = async () => {
-    if (!termsAccepted) {
+  const handleSendMessage = () => {
+    if (!inputMessage.trim()) return
+
+    const newMessages = [...messages, { text: inputMessage, isUser: true }]
+    
+    if (inputMessage.toLowerCase().includes('coding exercise') || 
+        inputMessage.toLowerCase().includes('practice coding')) {
+      setShowCoding(true)
+      setMessages([
+        ...newMessages,
+        { text: "Great! I'll set up a coding exercise for you. What programming language would you like to practice?", isUser: false }
+      ])
+    } else {
+      setMessages([
+        ...newMessages,
+        { text: "I can help you with coding exercises. Just ask for a coding exercise or practice problem!", isUser: false }
+      ])
+    }
+    
+    setInputMessage('')
+  }
+
+  const analyzeCode = async () => {
+    if (!code.trim()) {
       toast({
-        title: 'Terms and Conditions',
-        description: 'Please accept the terms and conditions to continue',
+        title: 'Please enter some code',
         status: 'warning',
         duration: 3000,
-        isClosable: true,
-      });
-      return;
+      })
+      return
     }
 
-    if (password !== confirmPassword) {
-      toast({
-        title: 'Password Mismatch',
-        description: 'Passwords do not match',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
+    setIsAnalyzing(true)
+    setFeedback(null)
 
-    setIsLoading(true);
-    try {
-      const res = await fetch('http://localhost:8000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          password
-        })
-      });
+    // Simulate code analysis
+    setTimeout(() => {
+      const startTime = performance.now()
+      
+      // Calculate code metrics
+      const lines = code.split('\n').length
+      const functions = (code.match(/function|def|class/g) || []).length
+      const complexity = calculateComplexity(code)
+      
+      setCodeMetrics({
+        lines,
+        functions,
+        complexity,
+        executionTime: performance.now() - startTime
+      })
 
-      const data = await res.json();
+      // Generate feedback
+    setFeedback({
+      status: 'success',
+        message: 'Code Analysis Complete!',
+        details: 'Your code has been analyzed for correctness, efficiency, and style.',
+        suggestions: [
+          'Consider adding error handling',
+          'Use more descriptive variable names',
+          'Add comments for complex logic'
+        ],
+        bestPractices: [
+          'Follow consistent code style',
+          'Use proper indentation',
+          'Break down complex functions'
+        ],
+        performance: {
+          score: 'Good',
+          notes: [
+            'No nested loops detected',
+            'No memory leaks detected',
+            'Consider using more efficient data structures'
+          ]
+        }
+      })
 
-      if (res.ok) {
-        console.log('Register - Setting token:', data.token ? 'Present' : 'Not present');
-        // Store the token and user data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Force a storage event to update other components
-        window.dispatchEvent(new Event('storage'));
-        
-        toast({
-          title: 'Registration successful',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        // Ensure navigation happens after state updates
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 100);
-      } else {
-        toast({
-          title: 'Registration failed',
-          description: data.message || 'Something went wrong',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-    } catch (err) {
-      console.error('Registration failed:', err);
-      toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setIsAnalyzing(false)
+    }, 2000)
+  }
 
-  console.log("Registering with:")
-  console.log("First Name:", firstName)
-  console.log("Last Name:", lastName)
-  console.log("Email:", email)
-  console.log("Password:", password)
+  const calculateComplexity = (code) => {
+    const lines = code.split('\n').length
+    const functions = (code.match(/function|def|class/g) || []).length
+    const loops = (code.match(/for|while/g) || []).length
+    const conditions = (code.match(/if|else/g) || []).length
+
+    const score = lines + (functions * 2) + (loops * 3) + (conditions * 2)
+    
+    if (score < 10) return "Low"
+    if (score < 20) return "Medium"
+    if (score < 30) return "High"
+    return "Very High"
+  }
+
+  const handleExerciseSelect = (exercise) => {
+    setSelectedExercise(exercise)
+    setCode('') // Clear previous code
+    setFeedback(null)
+    setCodeMetrics(null)
+  }
 
   return (
-    <Box minH="calc(100vh - 60px)" position="relative" overflow="hidden">
-      {/* Background with Pattern and Gradient */}
-      <Box
-        position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        bgGradient="linear(to-br, orange.300, orange.200)"
-        opacity={0.1}
-        backgroundImage="url('data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ED8936' fill-opacity='1' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E')"
-      />
-
-      <Container maxW="container.lg" py={20} position="relative">
-        <Stack
-          direction={{ base: 'column', lg: 'row' }}
-          spacing={{ base: 8, lg: 16 }}
-          align="center"
-          justify="center"
-        >
-          {/* Left Side - Welcome Message */}
-          <VStack
-            spacing={8}
-            align="flex-start"
-            maxW="480px"
-            display={{ base: 'none', lg: 'flex' }}
-          >
-            <VStack align="flex-start" spacing={3}>
-              <Heading size="2xl" color="gray.700" lineHeight="shorter">
-                Join AI RubberDucker Today
-              </Heading>
-              <Text fontSize="lg" color="gray.600" lineHeight="tall">
-                Start your coding journey with personalized learning and real-time assistance. Our AI tutor is here to help you master programming concepts at your own pace.
-              </Text>
-            </VStack>
-
-            <Box position="relative" w="full">
-              <Image
-                src="/ducks/cute.png"
-                alt="AI RubberDucker Mascot"
-                h="300px"
-                objectFit="contain"
-                mx="auto"
-                style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-                transition="transform 0.3s ease-in-out"
-                _hover={{ transform: 'scale(1.05)' }}
-              />
-            </Box>
-          </VStack>
-
-          {/* Right Side - Registration Form */}
-          <Box
-            bg="white"
-            p={12}
-            borderRadius="xl"
-            boxShadow="xl"
-            maxW="480px"
-            w="full"
-            position="relative"
-            overflow="hidden"
-          >
-            {/* Decorative Corner */}
-            <Box
-              position="absolute"
-              top={-10}
-              right={-10}
-              w={20}
-              h={20}
-              bg="orange.50"
-              transform="rotate(45deg)"
-            />
-
-            <VStack spacing={8} align="stretch" position="relative">
-              <VStack spacing={2} align="start">
-                <Heading size="lg" color="gray.700">Create Your Account</Heading>
-                <Text color="gray.500">
-                  Already have an account? <Link to="/login" style={{ color: 'var(--chakra-colors-orange-400)', fontWeight: 500 }}>Sign in here</Link>
-                </Text>
-              </VStack>
-
-              <VStack spacing={6}>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3} w="full">
-                  <FormControl isRequired>
-                    <FormLabel color="gray.600">First Name</FormLabel>
-                    <Input 
-                      type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Enter your first name"
-                    />
-                  </FormControl>
-                  <FormControl isRequired>
-                    <FormLabel color="gray.600">Last Name</FormLabel>
-                    <Input 
-                      type="text"
-                     value={lastName}
-                     onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Enter your last name"
-                    />
-                  </FormControl>
-                </SimpleGrid>
-
-                <FormControl isRequired>
-                  <FormLabel color="gray.600">Email</FormLabel>
-                  <Input 
-                    type="email" 
-                    value={email}
-  onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                  />
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel color="gray.600">Password</FormLabel>
-                  <Input 
-                    type="password" 
-                    value={password}
-  onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a password"
-                  />
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel color="gray.600">Confirm Password</FormLabel>
-                  <Input 
-                    type="password" 
-                    value={confirmPassword}
-  onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm your password"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <Checkbox 
-                    isChecked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    colorScheme="orange"
+    <Box minH="100vh" bg={bgColor} p={8}>
+      <VStack spacing={8} align="stretch" maxW="1200px" mx="auto">
+        <Flex gap={6} direction={{ base: 'column', md: 'row' }}>
+          {/* Chat Section */}
+          <Box flex={2} w="100%">
+            <VStack align="stretch" spacing={4} h="100%">
+              <Box
+                borderWidth="1px"
+                borderRadius="lg"
+                borderColor={borderColor}
+                p={4}
+                bg={chatBg}
+                minH="500px"
+                maxH="500px"
+                overflowY="auto"
+              >
+                {messages.map((message, index) => (
+                  <Flex
+                    key={index}
+                    justify={message.isUser ? 'flex-end' : 'flex-start'}
+                    mb={4}
                   >
-                    <Text fontSize="sm" color="gray.600">
-                      I agree to the <Link style={{ color: 'var(--chakra-colors-orange-400)', fontWeight: 500 }}>Terms of Service</Link> and <Link style={{ color: 'var(--chakra-colors-orange-400)', fontWeight: 500 }}>Privacy Policy</Link>
-                    </Text>
-                  </Checkbox>
-                </FormControl>
+                    <Box
+                      maxW="80%"
+                      bg={message.isUser ? 'orange.100' : 'white'}
+                      p={3}
+                      borderRadius="lg"
+                      boxShadow="sm"
+                    >
+                      <Text>{message.text}</Text>
+                    </Box>
+                  </Flex>
+                ))}
+              </Box>
 
-                <Button
-  onClick={handleRegister}
-  colorScheme="orange"
-  size="lg"
-  w="full"
-  py={6}
-                  isLoading={isLoading}
-                  loadingText="Creating account..."
-                  _hover={{
-                    transform: 'translateY(-2px)',
-                    boxShadow: 'lg',
-                  }}
->
-  Create Account
-</Button>
-              </VStack>
-
-              <VStack spacing={6}>
-                <HStack>
-                  <Divider />
-                  <Text fontSize="sm" color="gray.500" whiteSpace="nowrap" px={3}>
-                    or continue with
-                  </Text>
-                  <Divider />
-                </HStack>
-
-                <SimpleGrid columns={2} spacing={4} w="full">
-                  <GoogleAuthButton 
-                    label="Google"
-                    redirectPath="/dashboard"
-                    onSuccess={(result) => {
-                      toast({
-                        title: 'Registration successful',
-                        status: 'success',
-                        duration: 3000,
-                        isClosable: true,
-                      });
-                      navigate('/dashboard');
-                    }}
-                  />
-                  <SocialButton 
-                    icon={FaGithub}
-                    label="GitHub"
-                    onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`}
-                  />
-                </SimpleGrid>
-              </VStack>
+              <HStack>
+                <Input
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+                <IconButton
+                  colorScheme="orange"
+                  aria-label="Send message"
+                  icon={<ChatIcon />}
+                  onClick={handleSendMessage}
+                />
+              </HStack>
             </VStack>
           </Box>
-        </Stack>
-      </Container>
+
+          {/* Coding Section */}
+          <Box flex={3} w="100%">
+              <VStack align="stretch" spacing={4} h="100%">
+              <HStack justify="space-between">
+                <Button
+                  leftIcon={<FaCode />}
+                  colorScheme="orange"
+                  variant="outline"
+                  onClick={onOpen}
+                >
+                  Select Exercise
+                </Button>
+                <HStack>
+                  <Select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    w="150px"
+                    borderColor="orange.200"
+                    _hover={{ borderColor: 'orange.300' }}
+                  >
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                  </Select>
+                  <IconButton
+                    icon={<FaPlay />}
+                    colorScheme="green"
+                    aria-label="Run code"
+                    onClick={analyzeCode}
+                    isLoading={isAnalyzing}
+                  />
+                  <Button
+                    colorScheme="orange"
+                    onClick={analyzeCode}
+                    isLoading={isAnalyzing}
+                  >
+                    Judge My Code
+                  </Button>
+                  <IconButton
+                    icon={<FaRedo />}
+                    colorScheme="orange"
+                    aria-label="Reset code"
+                    onClick={() => setCode('')}
+                  />
+                </HStack>
+              </HStack>
+
+              {selectedExercise && (
+                <Box
+                  p={4}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor="orange.200"
+                  bg="orange.50"
+                >
+                  <VStack align="stretch" spacing={2}>
+                    <HStack justify="space-between">
+                      <Heading size="md">{selectedExercise.title}</Heading>
+                      <Badge colorScheme={selectedExercise.difficulty === 'Easy' ? 'green' : 'orange'}>
+                        {selectedExercise.difficulty}
+                      </Badge>
+                    </HStack>
+                    <Text>{selectedExercise.description}</Text>
+                    <Collapse in={showHistory}>
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>Test Cases:</Text>
+                        {selectedExercise.testCases.map((testCase, index) => (
+                          <Box key={index} mb={2}>
+                            <Text fontSize="sm">Input: {JSON.stringify(testCase.input)}</Text>
+                            <Text fontSize="sm">Expected Output: {JSON.stringify(testCase.output)}</Text>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Collapse>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      rightIcon={showHistory ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                      onClick={() => setShowHistory(!showHistory)}
+                    >
+                      {showHistory ? 'Hide Details' : 'Show Details'}
+                    </Button>
+                  </VStack>
+                </Box>
+              )}
+
+              <Box
+                border="1px"
+                  borderColor="orange.200"
+                  rounded="md"
+                  p={2}
+                  bg="orange.50"
+                  flex="1"
+                >
+                  <Textarea
+                  ref={codeEditorRef}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={`Enter your ${language} code here...`}
+                    minH="400px"
+                    fontFamily="monospace"
+                    bg="white"
+                    _focus={{
+                      borderColor: 'orange.300',
+                      boxShadow: '0 0 0 1px var(--chakra-colors-orange-300)'
+                    }}
+                  />
+                </Box>
+
+                {feedback && (
+                  <Box 
+                    p={4} 
+                    rounded="lg" 
+                    shadow="md" 
+                    borderTop="4px" 
+                    borderColor="orange.400"
+                    bg="white"
+                  >
+                    <VStack align="stretch" spacing={4}>
+                      <Heading size="md" bgGradient="linear(to-r, orange.400, orange.600)" bgClip="text">
+                      Analysis Results
+                      </Heading>
+                    
+                    {codeMetrics && (
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>Code Metrics:</Text>
+                        <HStack spacing={4}>
+                          <Badge colorScheme="blue">Lines: {codeMetrics.lines}</Badge>
+                          <Badge colorScheme="purple">Functions: {codeMetrics.functions}</Badge>
+                          <Badge colorScheme={codeMetrics.complexity === 'Low' ? 'green' : 'orange'}>
+                            Complexity: {codeMetrics.complexity}
+                          </Badge>
+                          <Badge colorScheme="teal">
+                            Time: {codeMetrics.executionTime.toFixed(2)}ms
+                          </Badge>
+                        </HStack>
+                      </Box>
+                    )}
+
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Suggestions:</Text>
+                      <List spacing={2}>
+                        {feedback.suggestions.map((suggestion, index) => (
+                          <ListItem key={index}>
+                            <ListIcon as={FaLightbulb} color="orange.500" />
+                            {suggestion}
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Best Practices:</Text>
+                      <List spacing={2}>
+                        {feedback.bestPractices.map((practice, index) => (
+                          <ListItem key={index}>
+                            <ListIcon as={CheckIcon} color="green.500" />
+                            {practice}
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Performance:</Text>
+                      <VStack align="stretch" spacing={2}>
+                        <HStack>
+                          <Text>Score:</Text>
+                          <Badge colorScheme={feedback.performance.score === 'Good' ? 'green' : 'orange'}>
+                            {feedback.performance.score}
+                          </Badge>
+                        </HStack>
+                        <List spacing={2}>
+                          {feedback.performance.notes.map((note, index) => (
+                            <ListItem key={index}>
+                              <ListIcon as={InfoIcon} color="blue.500" />
+                              {note}
+                            </ListItem>
+                          ))}
+                        </List>
+                      </VStack>
+                    </Box>
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+        </Flex>
+      </VStack>
+
+      {/* Exercise Selection Drawer */}
+      <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="md">
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>
+            <Heading size="md">Select Coding Exercise</Heading>
+          </DrawerHeader>
+
+          <DrawerBody>
+            <VStack spacing={4} align="stretch">
+              {codingExercises.map((exercise) => (
+                <Box
+                  key={exercise.id}
+                  p={4}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor={selectedExercise?.id === exercise.id ? 'orange.400' : 'gray.200'}
+                  bg={selectedExercise?.id === exercise.id ? 'orange.50' : 'white'}
+                  cursor="pointer"
+                  onClick={() => {
+                    handleExerciseSelect(exercise)
+                    onClose()
+                  }}
+                  _hover={{
+                    borderColor: 'orange.300',
+                    bg: 'orange.50'
+                  }}
+                >
+                  <HStack justify="space-between" mb={2}>
+                    <Heading size="sm">{exercise.title}</Heading>
+                    <Badge colorScheme={exercise.difficulty === 'Easy' ? 'green' : 'orange'}>
+                      {exercise.difficulty}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="gray.600">
+                    {exercise.description}
+                  </Text>
+                </Box>
+              ))}
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </Box>
   )
 }
 
-export default Register
+export default CodingSection 

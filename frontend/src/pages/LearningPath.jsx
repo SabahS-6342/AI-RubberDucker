@@ -19,7 +19,7 @@ import {
 } from '@chakra-ui/react';
 import { FaBook, FaCheck, FaLock, FaArrowRight, FaClock, FaGraduationCap } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { getLearningPaths, getStudyMaterials } from '../services/learningPath';
+import { getLearningPaths } from '../services/learningPath';
 
 const TopicCard = ({ title, description, progress, isLocked, onStart }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
@@ -140,7 +140,6 @@ const LearningPath = () => {
   const [paths, setPaths] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [studyMaterials, setStudyMaterials] = useState([]);
   
   useEffect(() => {
     const fetchLearningPaths = async () => {
@@ -164,25 +163,6 @@ const LearningPath = () => {
     };
     
     fetchLearningPaths();
-  }, [toast]);
-  
-  useEffect(() => {
-    const fetchStudyMaterials = async () => {
-      try {
-        const data = await getStudyMaterials();
-        setStudyMaterials(data);
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load study materials',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-      }
-    };
-
-    fetchStudyMaterials();
   }, [toast]);
   
   const handlePathClick = (pathId) => {
@@ -254,15 +234,6 @@ const LearningPath = () => {
               </VStack>
             </Box>
           )}
-        </SimpleGrid>
-        <VStack align="start" spacing={1}>
-          <Heading size="xl">Study Materials</Heading>
-          <Text color="gray.600">Explore additional resources to enhance your learning</Text>
-        </VStack>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {studyMaterials.map((material) => (
-            <TopicCard key={material.id} title={material.title} description={material.description} progress={material.progress} isLocked={material.isLocked} onStart={() => handlePathClick(material.id)} />
-          ))}
         </SimpleGrid>
       </VStack>
     </Box>
